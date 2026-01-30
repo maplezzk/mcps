@@ -47,6 +47,10 @@ export class ConnectionPool {
     }
     this.clients.clear();
   }
+
+  getActiveConnections(): string[] {
+    return Array.from(this.clients.keys());
+  }
 }
 
 export const connectionPool = new ConnectionPool();
