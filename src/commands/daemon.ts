@@ -1,3 +1,4 @@
+import { spawn } from 'child_process';
 import http from 'http';
 import chalk from 'chalk';
 import { Command } from 'commander';
@@ -27,7 +28,39 @@ export const registerDaemonCommand = (program: Command) => {
         }
       } catch {
         // Not running, safe to start
-        startDaemon(port);
+        
+        // If we are already detached (indicated by env var), run the server
+        if (process.env.MCPS_DAEMON_DETACHED === 'true') {
+             startDaemon(port);
+             return;
+        }
+
+        // Otherwise, spawn a detached process
+        console.log(chalk.gray('Starting daemon in background...'));
+        const subprocess = spawn(process.execPath, [process.argv[1], 'daemon', 'start'], {
+            detached: true,
+            stdio: 'ignore',
+            env: {
+                ...process.env,
+                MCPS_DAEMON_DETACHED: 'true'
+            }
+        });
+        subprocess.unref();
+        
+        // Wait briefly to ensure it started (optional but good UX)
+        // We can poll status for a second
+        const start = Date.now();
+        while (Date.now() - start < 2000) {
+            try {
+                const res = await fetch(`http://localhost:${port}/status`);
+                if (res.ok) {
+                    console.log(chalk.green(`Daemon started successfully on port ${port}.`));
+                    process.exit(0);
+                }
+            } catch {}
+            await new Promise(r => setTimeout(r, 100));
+        }
+        console.log(chalk.yellow('Daemon started (async check timeout, but likely running).'));
       }
     });
 
