@@ -3,8 +3,8 @@ import path from 'path';
 import os from 'os';
 import { Config, ConfigSchema, ServerConfig, ServerConfigSchema } from '../types/config.js';
 
-const CONFIG_DIR = process.env.MCP_CONFIG_DIR || path.join(os.homedir(), '.mcp');
-const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+const CONFIG_DIR = process.env.MCP_CONFIG_DIR || path.join(os.homedir(), '.mcpp');
+const CONFIG_FILE = path.join(CONFIG_DIR, 'mcp.json');
 
 export class ConfigManager {
   private ensureConfigDir() {

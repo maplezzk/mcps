@@ -9,7 +9,7 @@ A powerful command-line interface for managing and interacting with [Model Conte
 - 🔌 **Server Management**: Easily add, remove, list, and update MCP servers (Stdio & SSE).
 - 🛠️ **Tool Discovery**: List available tools from any configured server.
 - 🚀 **Tool Execution**: Call tools directly from the CLI with automatic argument parsing.
-- 🔄 **Persistence**: Automatically saves configuration to `~/.mcp/config.json`.
+- 🔄 **Persistence**: Automatically saves configuration to `~/.mcpp/mcp.json`.
 
 ## Installation
 
@@ -69,7 +69,7 @@ mcpp call my-server config debug=true timeout=5000
 ## Configuration File
 
 By default, configuration is stored in:
-`~/.mcp/config.json`
+`~/.mcpp/mcp.json`
 
 You can override this location by setting the `MCP_CONFIG_DIR` environment variable.
 
