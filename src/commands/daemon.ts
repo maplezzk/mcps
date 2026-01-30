@@ -10,14 +10,25 @@ const pkg = require('../../package.json');
 
 export const registerDaemonCommand = (program: Command) => {
   const daemonCmd = program.command('daemon')
-    .description('Manage the mcps daemon');
+    .description('Manage the mcps daemon')
+    .usage('start|stop|restart|status'); // Simplify usage display
 
-  daemonCmd.command('start', { isDefault: true })
+  daemonCmd.command('start', { isDefault: true, hidden: true }) // Hide default start from help but keep functionality
     .description('Start the daemon (default)')
     .option('-p, --port <number>', 'Port to listen on', String(DAEMON_PORT))
     .action(async (options) => {
       const port = parseInt(options.port);
-      startDaemon(port);
+      // Check if already running
+      try {
+        const res = await fetch(`http://localhost:${port}/status`);
+        if (res.ok) {
+            console.log(chalk.yellow(`Daemon is already running on port ${port}.`));
+            return;
+        }
+      } catch {
+        // Not running, safe to start
+        startDaemon(port);
+      }
     });
 
   daemonCmd.command('stop')
@@ -71,8 +82,12 @@ export const registerDaemonCommand = (program: Command) => {
 
 const startDaemon = (port: number) => {
       const server = http.createServer(async (req, res) => {
-        // ... (middleware) ...
-        res.setHeader('Access-Control-Allow-Origin', '*');
+    // Basic Error Handling
+    req.on('error', (err) => {
+        console.error('[Daemon] Request error:', err);
+    });
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -188,13 +203,19 @@ const startDaemon = (port: number) => {
       });
 
       server.listen(port, () => {
-        console.log(chalk.green(`
-🚀 mcps Daemon started on port ${port}
------------------------------------
-- Keeps connections to MCP servers alive
-- Improves performance for frequent tool calls
-- Run 'mcps call ...' in another terminal to use it automatically
-        `));
+        // Only log if not detached (i.e. running in foreground for debugging)
+        // or we can just log to stdout which is ignored in detached mode
+        // console.log(chalk.green(`Daemon started on port ${port}`));
+      });
+      
+      server.on('error', (e: any) => {
+        if (e.code === 'EADDRINUSE') {
+          console.log(chalk.yellow(`Port ${port} is already in use.`));
+          process.exit(0); // Exit gracefully if already running
+        } else {
+          console.error('[Daemon] Server error:', e);
+          process.exit(1);
+        }
       });
 
       const shutdown = async () => {
