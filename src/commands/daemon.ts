@@ -43,14 +43,16 @@ export const registerDaemonCommand = (program: Command) => {
          const res = await fetch(`http://localhost:${PORT}/status`);
          const data = await res.json();
          console.log(chalk.green(`Daemon is running (v${data.version})`));
-         if (data.connections && data.connections.length > 0) {
-            console.log(chalk.bold('\nActive Connections:'));
-            data.connections.forEach((name: string) => {
-                console.log(chalk.cyan(`- ${name}`));
-            });
-         } else {
-             console.log(chalk.gray('No active connections.'));
-         }
+          if (data.connections && data.connections.length > 0) {
+             console.log(chalk.bold('\nActive Connections:'));
+             data.connections.forEach((conn: any) => {
+                 const count = conn.toolsCount !== null ? `(${conn.toolsCount} tools)` : '(error listing tools)';
+                 const status = conn.status === 'error' ? chalk.red('[Error]') : '';
+                 console.log(chalk.cyan(`- ${conn.name} ${chalk.gray(count)} ${status}`));
+             });
+          } else {
+              console.log(chalk.gray('No active connections.'));
+          }
        } catch (e) {
          console.error(chalk.red('Daemon is not running.'));
        }
@@ -86,11 +88,12 @@ const startDaemon = (port: number) => {
         }
 
         if (req.method === 'GET' && req.url === '/status') {
+          const connections = await connectionPool.getActiveConnectionDetails();
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ 
               status: 'running', 
               version: pkg.version,
-              connections: connectionPool.getActiveConnections()
+              connections
           }));
           return;
         }

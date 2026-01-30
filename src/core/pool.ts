@@ -48,8 +48,20 @@ export class ConnectionPool {
     this.clients.clear();
   }
 
-  getActiveConnections(): string[] {
-    return Array.from(this.clients.keys());
+  async getActiveConnectionDetails(): Promise<{ name: string, toolsCount: number | null, status: string }[]> {
+    const details = [];
+    for (const [name, client] of this.clients) {
+      let toolsCount = null;
+      let status = 'connected';
+      try {
+        const result = await client.listTools();
+        toolsCount = result.tools.length;
+      } catch (e) {
+        status = 'error';
+      }
+      details.push({ name, toolsCount, status });
+    }
+    return details;
   }
 }
 
