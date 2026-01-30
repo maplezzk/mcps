@@ -19,7 +19,36 @@ npm install -g @maplezzk/mcps
 
 ## Usage
 
-### 1. Server Management
+### 1. Daemon Mode
+
+mcps supports a daemon mode that maintains persistent connections to MCP servers, significantly improving performance for frequent calls.
+
+**Start Daemon:**
+```bash
+mcps daemon
+```
+or
+```bash
+mcps daemon start
+```
+
+**Restart Connections:**
+If you update the configuration or a server behaves unexpectedly, you can refresh connections:
+
+```bash
+# Reset all connections
+mcps daemon restart
+
+# Reset connection for a specific server
+mcps daemon restart my-server
+```
+
+**Stop Daemon:**
+```bash
+mcps daemon stop
+```
+
+### 2. Server Management
 
 **List all servers:**
 ```bash

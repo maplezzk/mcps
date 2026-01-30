@@ -22,6 +22,20 @@ export class ConnectionPool {
     return client;
   }
 
+  async closeClient(serverName: string) {
+    if (this.clients.has(serverName)) {
+      console.log(`[Daemon] Closing connection to ${serverName}...`);
+      try {
+        await this.clients.get(serverName)!.close();
+      } catch (e) {
+        console.error(`[Daemon] Error closing ${serverName}:`, e);
+      }
+      this.clients.delete(serverName);
+      return true;
+    }
+    return false;
+  }
+
   async closeAll() {
     for (const [name, client] of this.clients) {
       console.log(`[Daemon] Closing connection to ${name}...`);

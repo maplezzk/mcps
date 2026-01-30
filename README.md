@@ -19,7 +19,36 @@ npm install -g @maplezzk/mcps
 
 ## 使用指南
 
-### 1. 服务管理 (Server Management)
+### 1. 守护进程 (Daemon Mode)
+
+mcps 支持守护进程模式，可以保持与 MCP 服务的长连接，显著提高频繁调用的性能。
+
+**启动守护进程：**
+```bash
+mcps daemon
+```
+或者
+```bash
+mcps daemon start
+```
+
+**重启连接：**
+如果修改了配置文件，或者服务出现异常，可以使用重启命令刷新连接：
+
+```bash
+# 重置所有连接
+mcps daemon restart
+
+# 仅重置特定服务的连接
+mcps daemon restart my-server
+```
+
+**停止守护进程：**
+```bash
+mcps daemon stop
+```
+
+### 2. 服务管理 (Server Management)
 
 **查看所有服务：**
 ```bash
