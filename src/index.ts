@@ -4,13 +4,17 @@ import { registerServerCommands } from './commands/server.js';
 import { registerToolsCommand } from './commands/tools.js';
 import { registerCallCommand } from './commands/call.js';
 import { registerDaemonCommand } from './commands/daemon.js';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json');
 
 const program = new Command();
 
 program
   .name('mcps')
   .description('A CLI to manage and use MCP servers')
-  .version('1.0.0');
+  .version(pkg.version);
 
 registerServerCommands(program);
 registerToolsCommand(program);

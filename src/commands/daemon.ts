@@ -2,6 +2,10 @@ import http from 'http';
 import chalk from 'chalk';
 import { Command } from 'commander';
 import { connectionPool } from '../core/pool.js';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../../package.json');
 
 const PORT = 4100;
 
@@ -63,7 +67,7 @@ const startDaemon = (port: number) => {
 
         if (req.method === 'GET' && req.url === '/status') {
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ status: 'running', version: '1.0.0' }));
+          res.end(JSON.stringify({ status: 'running', version: pkg.version }));
           return;
         }
         
