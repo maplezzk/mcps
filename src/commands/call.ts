@@ -57,10 +57,10 @@ export const registerCallCommand = (program: Command) => {
     .description('Call a tool on a server. Arguments format: key=value')
     .addHelpText('after', `
 Examples:
-  $ mcpp call my-server echo message="Hello World"
-  $ mcpp call my-server add a=10 b=20
-  $ mcpp call my-server config debug=true
-  $ mcpp call my-server createUser user='{"name":"Alice","age":30}'
+  $ mcps call my-server echo message="Hello World"
+  $ mcps call my-server add a=10 b=20
+  $ mcps call my-server config debug=true
+  $ mcps call my-server createUser user='{"name":"Alice","age":30}'
 
 Notes:
   - Arguments are parsed as key=value pairs.

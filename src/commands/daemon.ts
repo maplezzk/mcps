@@ -7,7 +7,7 @@ const PORT = 4100;
 
 export const registerDaemonCommand = (program: Command) => {
   program.command('daemon')
-    .description('Start the mcpp daemon to keep server connections alive')
+    .description('Start the mcps daemon to keep server connections alive')
     .option('-p, --port <number>', 'Port to listen on', String(PORT))
     .action(async (options) => {
       const port = parseInt(options.port);
@@ -63,11 +63,11 @@ export const registerDaemonCommand = (program: Command) => {
 
       server.listen(port, () => {
         console.log(chalk.green(`
-🚀 mcpp Daemon started on port ${port}
+🚀 mcps Daemon started on port ${port}
 -----------------------------------
 - Keeps connections to MCP servers alive
 - Improves performance for frequent tool calls
-- Run 'mcpp call ...' in another terminal to use it automatically
+- Run 'mcps call ...' in another terminal to use it automatically
         `));
       });
 

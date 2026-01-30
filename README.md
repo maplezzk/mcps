@@ -1,4 +1,4 @@
-# mcpp - MCP CLI Manager
+# mcps - MCP CLI Manager
 
 [English](./README_EN.md) | [简体中文](./README.md)
 
@@ -9,13 +9,12 @@
 - 🔌 **服务管理**：轻松添加、移除、查看和更新 MCP 服务（支持 Stdio 和 SSE 模式）。
 - 🛠️ **工具发现**：查看已配置服务中所有可用的工具。
 - 🚀 **工具执行**：直接在命令行调用工具，支持参数自动解析。
-- ⚙️ **配置管理**：从现有的 JSON 配置文件（如 `.mcporter`）一键导入配置。
-- 🔄 **持久化存储**：配置自动保存至 `~/.mcpp/mcp.json`。
+- 🔄 **持久化存储**：配置自动保存至 `~/.mcps/mcp.json`。
 
 ## 安装
 
 ```bash
-npm install -g mcpp
+npm install -g mcps
 ```
 
 ## 使用指南
@@ -24,45 +23,45 @@ npm install -g mcpp
 
 **查看所有服务：**
 ```bash
-mcpp server list
+mcps server list
 ```
 
 **添加 Stdio 服务：**
 ```bash
 # 添加本地 Node.js 服务
-mcpp server add my-server --command node --args ./build/index.js
+mcps server add my-server --command node --args ./build/index.js
 
 # 使用 npx/uvx 添加服务
-mcpp server add fetch --command uvx --args mcp-server-fetch
+mcps server add fetch --command uvx --args mcp-server-fetch
 ```
 
 **添加 SSE 服务：**
 ```bash
-mcpp server add remote-server --type sse --url http://localhost:8000/sse
+mcps server add remote-server --type sse --url http://localhost:8000/sse
 ```
 
 **添加 Streamable HTTP 服务：**
 ```bash
-mcpp server add my-http-server --type http --url http://localhost:8000/mcp
+mcps server add my-http-server --type http --url http://localhost:8000/mcp
 ```
 
 **移除服务：**
 ```bash
-mcpp server remove my-server
+mcps server remove my-server
 ```
 
 ### 2. 工具交互 (Tool Interaction)
 
 **查看服务下的可用工具：**
 ```bash
-mcpp tools fetch
+mcps tools fetch
 ```
 
 **调用工具：**
 
 语法：
 ```bash
-mcpp call <server_name> <tool_name> [arguments...]
+mcps call <server_name> <tool_name> [arguments...]
 ```
 
 - `<server_name>`: 已配置的 MCP 服务名称
@@ -72,19 +71,19 @@ mcpp call <server_name> <tool_name> [arguments...]
 示例：
 ```bash
 # 简单的字符串参数
-mcpp call fetch fetch url="https://example.com"
+mcps call fetch fetch url="https://example.com"
 
 # JSON 对象参数
-mcpp call my-server createUser user='{"name": "Alice", "age": 30}'
+mcps call my-server createUser user='{"name": "Alice", "age": 30}'
 
 # 布尔值/数字参数
-mcpp call my-server config debug=true timeout=5000
+mcps call my-server config debug=true timeout=5000
 ```
 
 ## 配置文件
 
 默认情况下，配置文件存储在：
-`~/.mcpp/mcp.json`
+`~/.mcps/mcp.json`
 
 您可以通过设置 `MCP_CONFIG_DIR` 环境变量来更改存储位置。
 

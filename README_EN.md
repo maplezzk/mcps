@@ -1,4 +1,4 @@
-# mcpp - MCP CLI Manager
+# mcps - MCP CLI Manager
 
 [English](./README_EN.md) | [简体中文](./README.md)
 
@@ -9,12 +9,12 @@ A powerful command-line interface for managing and interacting with [Model Conte
 - 🔌 **Server Management**: Easily add, remove, list, and update MCP servers (Stdio & SSE).
 - 🛠️ **Tool Discovery**: List available tools from any configured server.
 - 🚀 **Tool Execution**: Call tools directly from the CLI with automatic argument parsing.
-- 🔄 **Persistence**: Automatically saves configuration to `~/.mcpp/mcp.json`.
+- 🔄 **Persistence**: Automatically saves configuration to `~/.mcps/mcp.json`.
 
 ## Installation
 
 ```bash
-npm install -g mcpp
+npm install -g mcps
 ```
 
 ## Usage
@@ -23,45 +23,45 @@ npm install -g mcpp
 
 **List all servers:**
 ```bash
-mcpp server list
+mcps server list
 ```
 
 **Add a Stdio server:**
 ```bash
 # Add a local Node.js server
-mcpp server add my-server --command node --args ./build/index.js
+mcps server add my-server --command node --args ./build/index.js
 
 # Add a server using npx/uvx
-mcpp server add fetch --command uvx --args mcp-server-fetch
+mcps server add fetch --command uvx --args mcp-server-fetch
 ```
 
 **Add an SSE server:**
 ```bash
-mcpp server add remote-server --type sse --url http://localhost:8000/sse
+mcps server add remote-server --type sse --url http://localhost:8000/sse
 ```
 
 **Add a Streamable HTTP server:**
 ```bash
-mcpp server add my-http-server --type http --url http://localhost:8000/mcp
+mcps server add my-http-server --type http --url http://localhost:8000/mcp
 ```
 
 **Remove a server:**
 ```bash
-mcpp server remove my-server
+mcps server remove my-server
 ```
 
 ### 2. Tool Interaction
 
 **List tools available on a server:**
 ```bash
-mcpp tools fetch
+mcps tools fetch
 ```
 
 **Call a tool:**
 
 Syntax:
 ```bash
-mcpp call <server_name> <tool_name> [arguments...]
+mcps call <server_name> <tool_name> [arguments...]
 ```
 
 - `<server_name>`: The name of the configured MCP server
@@ -71,19 +71,19 @@ mcpp call <server_name> <tool_name> [arguments...]
 Examples:
 ```bash
 # Simple string argument
-mcpp call fetch fetch url="https://example.com"
+mcps call fetch fetch url="https://example.com"
 
 # JSON object argument
-mcpp call my-server createUser user='{"name": "Alice", "age": 30}'
+mcps call my-server createUser user='{"name": "Alice", "age": 30}'
 
 # Boolean/Number argument
-mcpp call my-server config debug=true timeout=5000
+mcps call my-server config debug=true timeout=5000
 ```
 
 ## Configuration File
 
 By default, configuration is stored in:
-`~/.mcpp/mcp.json`
+`~/.mcps/mcp.json`
 
 You can override this location by setting the `MCP_CONFIG_DIR` environment variable.
 

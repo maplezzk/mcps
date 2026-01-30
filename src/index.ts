@@ -8,7 +8,7 @@ import { registerDaemonCommand } from './commands/daemon.js';
 const program = new Command();
 
 program
-  .name('mcpp')
+  .name('mcps')
   .description('A CLI to manage and use MCP servers')
   .version('1.0.0');
 
