@@ -21,9 +21,29 @@ export class ConfigManager {
     try {
       const content = fs.readFileSync(CONFIG_FILE, 'utf-8');
       const json = JSON.parse(content);
-      return ConfigSchema.parse(json);
+      
+      if (!json || typeof json !== 'object' || !Array.isArray(json.servers)) {
+          // If the root structure is invalid, we can't do much.
+          console.warn('Invalid config file structure. Expected { servers: [] }.');
+          return { servers: [] };
+      }
+
+      const validServers: ServerConfig[] = [];
+      const servers = json.servers;
+
+      for (const server of servers) {
+          const result = ServerConfigSchema.safeParse(server);
+          if (result.success) {
+              validServers.push(result.data);
+          } else {
+              console.warn(`Skipping invalid server config "${server?.name || 'unknown'}":`, result.error.errors[0]?.message);
+          }
+      }
+
+      return { servers: validServers };
+
     } catch (error) {
-      console.error('Failed to parse config file, using default empty config.', error);
+      console.error('Failed to parse config file:', error);
       return { servers: [] };
     }
   }

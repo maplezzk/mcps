@@ -1,0 +1,14 @@
+{
+  "servers": [
+    {
+      "name": "good-server",
+      "type": "stdio",
+      "command": "echo",
+      "args": ["hello"]
+    },
+    {
+      "name": "bad-server",
+      "type": "sse"
+    }
+  ]
+}
