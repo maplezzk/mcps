@@ -7,17 +7,17 @@ export const ServerConfigSchema = z.union([
     command: z.string(),
     args: z.array(z.string()).default([]),
     env: z.record(z.string()).optional(),
-  }),
+  }).passthrough(),
   z.object({
     name: z.string(),
     type: z.literal('sse'),
     url: z.string().url(),
-  }),
+  }).passthrough(),
   z.object({
     name: z.string(),
     type: z.literal('http'),
     url: z.string().url(),
-  }),
+  }).passthrough(),
 ]);
 
 export const ConfigSchema = z.object({

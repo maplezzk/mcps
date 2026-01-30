@@ -22,21 +22,38 @@ export class ConfigManager {
       const content = fs.readFileSync(CONFIG_FILE, 'utf-8');
       const json = JSON.parse(content);
       
-      if (!json || typeof json !== 'object' || !Array.isArray(json.servers)) {
-          // If the root structure is invalid, we can't do much.
-          console.warn('Invalid config file structure. Expected { servers: [] }.');
+      // Log for debugging (can be removed later or controlled by verbose flag)
+      // console.log('Loading config from:', CONFIG_FILE);
+
+      if (!json || typeof json !== 'object') {
+          console.warn('Invalid config file structure. Expected JSON object.');
           return { servers: [] };
       }
 
+      // Handle both { servers: [...] } and { mcpServers: { ... } } (VSCode/Claude style)
+      let servers: any[] = [];
+      
+      if (Array.isArray(json.servers)) {
+          servers = json.servers;
+      } else if (json.mcpServers && typeof json.mcpServers === 'object') {
+          // Convert map to array
+          servers = Object.entries(json.mcpServers).map(([name, config]: [string, any]) => ({
+              name,
+              ...config
+          }));
+      }
+
       const validServers: ServerConfig[] = [];
-      const servers = json.servers;
 
       for (const server of servers) {
           const result = ServerConfigSchema.safeParse(server);
           if (result.success) {
               validServers.push(result.data);
           } else {
-              console.warn(`Skipping invalid server config "${server?.name || 'unknown'}":`, result.error.errors[0]?.message);
+              // Only warn if it looks like a server config we *should* have supported
+              if (server.name) {
+                  console.warn(`Skipping invalid server config "${server.name}":`, result.error.errors[0]?.message);
+              }
           }
       }
 
