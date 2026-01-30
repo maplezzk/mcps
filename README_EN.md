@@ -9,7 +9,6 @@ A powerful command-line interface for managing and interacting with [Model Conte
 - 🔌 **Server Management**: Easily add, remove, list, and update MCP servers (Stdio & SSE).
 - 🛠️ **Tool Discovery**: List available tools from any configured server.
 - 🚀 **Tool Execution**: Call tools directly from the CLI with automatic argument parsing.
-- ⚙️ **Config Management**: Import configurations from existing JSON files (e.g., `.mcporter`).
 - 🔄 **Persistence**: Automatically saves configuration to `~/.mcp/config.json`.
 
 ## Installation
@@ -65,19 +64,6 @@ mcpp call my-server createUser user='{"name": "Alice", "age": 30}'
 
 # Boolean/Number argument
 mcpp call my-server config debug=true timeout=5000
-```
-
-### 3. Configuration Management
-
-**Import configuration:**
-Import servers from a standard MCP JSON configuration file (e.g., `mcporter.json` or VSCode config).
-
-```bash
-# Import and merge (skips duplicates)
-mcpp config import ~/.mcporter/mcporter.json
-
-# Import and overwrite existing servers
-mcpp config import ~/.mcporter/mcporter.json --force
 ```
 
 ## Configuration File

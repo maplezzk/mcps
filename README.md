@@ -67,19 +67,6 @@ mcpp call my-server createUser user='{"name": "Alice", "age": 30}'
 mcpp call my-server config debug=true timeout=5000
 ```
 
-### 3. 配置管理 (Config Management)
-
-**导入配置：**
-从标准的 MCP JSON 配置文件（例如 `mcporter.json` 或 VSCode 配置）导入服务。
-
-```bash
-# 导入并合并（自动跳过重名服务）
-mcpp config import ~/.mcporter/mcporter.json
-
-# 导入并强制覆盖现有服务
-mcpp config import ~/.mcporter/mcporter.json --force
-```
-
 ## 配置文件
 
 默认情况下，配置文件存储在：
