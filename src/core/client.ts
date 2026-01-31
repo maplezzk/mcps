@@ -79,7 +79,7 @@ export class McpClientService {
 
       await this.client.connect(this.transport);
     } catch (error) {
-      console.error(`Failed to connect to server ${config.name}:`, error);
+      // Error will be handled by the caller
       throw error;
     }
   }

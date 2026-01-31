@@ -97,20 +97,27 @@ export class ConnectionPool {
     const results: { name: string; success: boolean; error?: string }[] = [];
 
     for (const server of enabledServers) {
-        if (verbose) {
-            process.stdout.write(`[Daemon] - ${server.name}... `);
-        }
+        process.stdout.write(`[Daemon] - ${server.name}... `);
         try {
             await this.getClient(server.name, { timeoutMs: 8000 });
             results.push({ name: server.name, success: true });
-            if (verbose) {
-                console.log('✓');
-            }
+            console.log('Connected ✓');
         } catch (error: any) {
-            results.push({ name: server.name, success: false, error: error.message });
+            // Extract clean error message
+            let errorMsg = 'Unknown error';
+            if (error?.message) {
+                // For spawn errors, the message usually contains the essential info
+                errorMsg = error.message;
+            } else if (typeof error === 'string') {
+                errorMsg = error;
+            } else if (error) {
+                errorMsg = String(error);
+            }
+
+            results.push({ name: server.name, success: false, error: errorMsg });
+            console.log('Failed ✗');
             if (verbose) {
-                console.log('✗');
-                console.error(`[Daemon] Error: ${error.message}`);
+                console.error(`[Daemon] Error: ${errorMsg}`);
             }
         }
     }
@@ -120,9 +127,10 @@ export class ConnectionPool {
     const failed = results.filter(r => !r.success);
     console.log(`[Daemon] Connected: ${successCount}/${enabledServers.length}`);
 
-    if (!verbose && failed.length > 0) {
+    if (failed.length > 0) {
+        console.log('[Daemon] Failed connections:');
         failed.forEach(f => {
-            console.error(`[Daemon] ✗ ${f.name}: ${f.error}`);
+            console.log(`  ✗ ${f.name}: ${f.error}`);
         });
     }
 
