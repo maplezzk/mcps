@@ -1,0 +1,70 @@
+name: Release to npm
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # 只有在 package.json 版本更新时才发布
+    if: "!contains(github.event.head_commit.message, '[skip release]')"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build project
+        run: npm run build
+
+      - name: Check version change
+        id: version
+        run: |
+          # 获取当前发布的版本
+          PUBLISHED_VERSION=$(npm view @maplezzk/mcps version 2>/dev/null || echo "0.0.0")
+          # 获取本地版本
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          echo "Published version: $PUBLISHED_VERSION"
+          echo "Local version: $LOCAL_VERSION"
+
+          if [ "$PUBLISHED_VERSION" != "$LOCAL_VERSION" ]; then
+            echo "Version changed, publishing to npm"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+            echo "version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "Version not changed, skipping publish"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish to npm
+        if: steps.version.outputs.should_publish == 'true'
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.should_publish == 'true'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          release_name: Release v${{ steps.version.outputs.version }}
+          body: |
+            ## Changes in this release
+            See commit history for details.
+          draft: false
+          prerelease: false
