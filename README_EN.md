@@ -6,10 +6,13 @@ A powerful command-line interface for managing and interacting with [Model Conte
 
 ## Features
 
-- 🔌 **Server Management**: Easily add, remove, list, and update MCP servers (Stdio & SSE).
-- 🛠️ **Tool Discovery**: List available tools from any configured server.
-- 🚀 **Tool Execution**: Call tools directly from the CLI with automatic argument parsing.
-- 🔄 **Persistence**: Automatically saves configuration to `~/.mcps/mcp.json`.
+- 🔌 **Server Management**: Easily add, remove, list, and update MCP servers (Stdio, SSE, and HTTP modes)
+- 🛠️ **Tool Discovery**: List available tools from any configured server
+- 🚀 **Tool Execution**: Call tools directly from the CLI with automatic argument parsing
+- 🔄 **Daemon Mode**: Maintain persistent connections to MCP servers for better performance
+- 📊 **Table Output**: Clear server status and tool listings
+- 🔍 **Tool Filtering**: Filter tools by keywords with simple mode
+- 🚨 **Verbose Logging**: Optional detailed logging for debugging
 
 ## Installation
 
@@ -17,7 +20,26 @@ A powerful command-line interface for managing and interacting with [Model Conte
 npm install -g @maplezzk/mcps
 ```
 
-## Usage
+## Quick Start
+
+```bash
+# 1. Add a server
+mcps add fetch --command uvx --args mcp-server-fetch
+
+# 2. Start the daemon
+mcps start
+
+# 3. Check server status
+mcps status
+
+# 4. List available tools
+mcps tools fetch
+
+# 5. Call a tool
+mcps call fetch fetch url="https://example.com"
+```
+
+## Usage Guide
 
 ### 1. Daemon Mode
 
@@ -25,12 +47,25 @@ mcps supports a daemon mode that maintains persistent connections to MCP servers
 
 **Start Daemon:**
 ```bash
+# Normal mode
 mcps start
+
+# Verbose mode (show connection process for each server and disabled servers)
+mcps start --verbose
+```
+
+Output example:
+```
+Starting daemon in background...
+[Daemon] Connecting to 7 server(s)...
+[Daemon] - chrome-devtools... Connected ✓
+[Daemon] - fetch... Connected ✓
+[Daemon] - gitlab-mr-creator... Connected ✓
+[Daemon] Connected: 7/7
+Daemon started successfully on port 4100.
 ```
 
 **Restart Connections:**
-If you update the configuration or a server behaves unexpectedly, you can refresh connections:
-
 ```bash
 # Reset all connections
 mcps restart
@@ -49,87 +84,257 @@ mcps stop
 mcps status
 ```
 
-> **Note**: Legacy three-word commands (e.g., `mcps daemon start`) are still supported for backward compatibility.
+Output example:
+```
+Daemon is running (v1.0.29)
+
+Active Connections:
+NAME                STATUS      TOOLS
+─────────────────   ──────────  ──────
+chrome-devtools     Connected   26
+fetch               Connected   1
+gitlab-mr-creator   Connected   30
+Total: 3 connection(s)
+```
 
 ### 2. Server Management
 
-**List all servers:**
+**List all servers (configuration):**
 ```bash
 mcps ls
 ```
 
-**Add a Stdio server:**
-```bash
-# Add a local Node.js server
-mcps add my-server --command node --args ./build/index.js
-
-# Add a server using npx/uvx
-mcps add fetch --command uvx --args mcp-server-fetch
+Output example:
+```
+NAME                TYPE    ENABLED  COMMAND/URL
+─────────────────   ──────  ───────  ─────────────
+chrome-devtools     stdio   ✓        npx -y chrome-devtools-mcp ...
+fetch               stdio   ✓        uvx mcp-server-fetch
+my-server           stdio   ✗        npx my-server
+Total: 3 server(s)
 ```
 
-**Add an SSE server:**
+**Add Stdio Server:**
+```bash
+# Add local Node.js server
+mcps add my-server --command node --args ./build/index.js
+
+# Use npx/uvx to add server
+mcps add fetch --command uvx --args mcp-server-fetch
+
+# Add server with environment variables
+mcps add my-db --command npx --args @modelcontextprotocol/server-postgres --env POSTGRES_CONNECTION_STRING="${DATABASE_URL}"
+```
+
+**Add SSE Server:**
 ```bash
 mcps add remote-server --type sse --url http://localhost:8000/sse
 ```
 
-**Add a Streamable HTTP server:**
+**Add Streamable HTTP Server:**
 ```bash
 mcps add my-http-server --type http --url http://localhost:8000/mcp
 ```
 
-**Remove a server:**
+**Remove Server:**
 ```bash
 mcps rm my-server
 ```
 
-**Update a server:**
+**Update Server:**
 ```bash
 # Refresh all server connections
 mcps update
 
-# Update server command
+# Update specific server command
 mcps update my-server --command new-command
 
-# Update server arguments
+# Update specific server arguments
 mcps update my-server --args arg1 arg2
+
+# Update both command and arguments
+mcps update my-server --command node --args ./new-build/index.js
 ```
 
 ### 3. Tool Interaction
 
-**List tools available on a server:**
+**List available tools on a server:**
 ```bash
-mcps tools fetch
+# Detailed mode (show all information)
+mcps tools chrome-devtools
+
+# Simple mode (show only tool names)
+mcps tools chrome-devtools --simple
+
+# Filter tools by keyword
+mcps tools chrome-devtools --tool screenshot
+
+# Multiple keywords + simple mode
+mcps tools gitlab-mr-creator --tool file --tool wiki --simple
 ```
 
-**Call a tool:**
+Detailed mode output example:
+```
+Available Tools for chrome-devtools:
+
+- take_screenshot
+  Take a screenshot of the page or element.
+  Arguments:
+    format*: string (Type of format to save the screenshot as...)
+    quality: number (Compression quality from 0-100)
+    uid: string (The uid of an element to screenshot...)
+    ...
+
+- click
+  Clicks on the provided element
+  Arguments:
+    uid*: string (The uid of an element...)
+    ...
+```
+
+Simple mode output example:
+```
+$ mcps tools chrome-devtools -s
+click
+close_page
+drag
+emulate
+evaluate_script
+fill
+...
+take_screenshot
+take_snapshot
+
+Total: 26 tool(s)
+```
+
+**Call Tools:**
 
 Syntax:
 ```bash
 mcps call <server_name> <tool_name> [arguments...]
 ```
 
-- `<server_name>`: The name of the configured MCP server
-- `<tool_name>`: The name of the tool to call
-- `[arguments...]`: Arguments passed as `key=value` pairs. The CLI attempts to parse values as JSON (numbers, booleans, objects) automatically.
+- `<server_name>`: Name of the configured MCP server
+- `<tool_name>`: Name of the tool to call
+- `[arguments...]`: Arguments passed as `key=value` pairs. The CLI attempts to automatically parse values as JSON (numbers, booleans, objects).
 
 Examples:
 ```bash
 # Simple string argument
 mcps call fetch fetch url="https://example.com"
 
+# Multiple arguments
+mcps call fetch fetch url="https://example.com" max_length=5000
+
 # JSON object argument
 mcps call my-server createUser user='{"name": "Alice", "age": 30}'
 
-# Boolean/Number argument
-mcps call my-server config debug=true timeout=5000
+# Boolean/number arguments
+mcps call chrome-devtools take_screenshot fullPage=true quality=90
+
+# Mixed arguments
+mcps call my-server config debug=true timeout=5000 options='{"retries": 3}'
 ```
 
 ## Configuration File
 
-By default, configuration is stored in:
+By default, the configuration file is stored at:
 `~/.mcps/mcp.json`
 
-You can override this location by setting the `MCP_CONFIG_DIR` environment variable.
+You can change the storage location by setting the `MCP_CONFIG_DIR` environment variable.
+
+Configuration file example:
+```json
+{
+  "servers": [
+    {
+      "name": "fetch",
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    },
+    {
+      "name": "my-server",
+      "type": "stdio",
+      "command": "node",
+      "args": ["./build/index.js"],
+      "env": {
+        "API_KEY": "${API_KEY}"
+      },
+      "disabled": false
+    }
+  ]
+}
+```
+
+## Environment Variables
+
+- `MCP_CONFIG_DIR`: Configuration file directory (default: `~/.mcps`)
+- `MCPS_PORT`: Daemon port (default: `4100`)
+- `MCPS_VERBOSE`: Verbose logging mode (default: `false`)
+
+## Command Reference
+
+### Server Management
+- `mcps ls` - List all servers
+- `mcps add <name>` - Add a new server
+- `mcps rm <name>` - Remove a server
+- `mcps update [name]` - Update server configuration
+
+### Daemon
+- `mcps start [-v]` - Start daemon (`-v` for detailed logging)
+- `mcps stop` - Stop daemon
+- `mcps status` - Check daemon status
+- `mcps restart [server]` - Restart daemon or specific server
+
+### Tool Interaction
+- `mcps tools <server> [-s] [-t <name>...]` - List available tools
+  - `-s, --simple`: Show only tool names
+  - `-t, --tool`: Filter tools by name (can be used multiple times)
+- `mcps call <server> <tool> [args...]` - Call a tool
+
+## Performance
+
+mcps optimizes performance through:
+
+1. **Daemon Mode**: Maintains persistent connections, avoiding repeated startup overhead
+2. **Tool Caching**: Caches tool counts during connection, avoiding repeated queries
+3. **Async Connections**: Parallel initialization of multiple server connections
+
+Typical performance:
+- Start daemon: 10-15 seconds (first time, depends on server count)
+- Check status: ~200ms
+- Call tool: ~50-100ms
+
+## FAQ
+
+**Q: How to check the status of all servers?**
+```bash
+mcps status  # Check active connections
+mcps ls      # Check all configurations (including disabled)
+```
+
+**Q: What if a server fails to connect?**
+```bash
+# View detailed logs
+mcps start --verbose
+
+# Restart that server
+mcps restart my-server
+```
+
+**Q: How to temporarily disable a server?**
+Set `"disabled": true` in the configuration file, or use `mcps update` to modify the configuration.
+
+**Q: How to quickly find tools when there are many?**
+```bash
+# Filter tools by keyword
+mcps tools my-server --tool keyword
+
+# Show only names
+mcps tools my-server --simple
+```
 
 ## License
 
