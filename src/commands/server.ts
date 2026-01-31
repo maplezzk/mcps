@@ -4,72 +4,76 @@ import { configManager } from '../core/config.js';
 import { DaemonClient } from '../core/daemon-client.js';
 
 export const registerServerCommands = (program: Command) => {
-  const listServersAction = async () => {
+  const listServersAction = () => {
       const servers = configManager.listServers();
       if (servers.length === 0) {
         console.log(chalk.yellow('No servers configured.'));
         return;
       }
 
-      // Get connection status from daemon if running
-      let connectionStatus: Map<string, { status: string; toolsCount: number | null }> = new Map();
-      try {
-          const port = parseInt(process.env.MCPS_PORT || '4100');
-          const res = await fetch(`http://localhost:${port}/status`);
-          if (res.ok) {
-              const data = await res.json();
-              if (data.connections) {
-                  data.connections.forEach((conn: any) => {
-                      const status = conn.status === 'error' ? 'Error' : 'Connected';
-                      connectionStatus.set(conn.name, {
-                          status,
-                          toolsCount: conn.toolsCount
-                      });
-                  });
+      // Helper function to calculate display width (Chinese chars count as 2)
+      const getDisplayWidth = (str: string): number => {
+          let width = 0;
+          for (const char of str) {
+              if (char.charCodeAt(0) > 127) {
+                  width += 2;
+              } else {
+                  width += 1;
               }
           }
-      } catch {
-          // Daemon not running, that's ok
-      }
+          return width;
+      };
+
+      // Helper function to pad string considering Chinese characters
+      const padEndWidth = (str: string, targetWidth: number): string => {
+          const displayWidth = getDisplayWidth(str);
+          const padding = Math.max(0, targetWidth - displayWidth);
+          return str + ' '.repeat(padding);
+      };
 
       // Build table rows
       const rows = servers.map(server => {
           const disabled = (server as any).disabled === true;
-          const serverStatus = disabled ? 'Disabled' :
-                        (connectionStatus.get(server.name)?.status || 'Not Connected');
-          const toolsCount = disabled ? '-' :
-                           (connectionStatus.get(server.name)?.toolsCount ?? '-');
           const typeColor = server.type === 'stdio' ? chalk.magenta : chalk.yellow;
-          const statusColor = serverStatus === 'Connected' ? chalk.green :
-                             serverStatus === 'Error' ? chalk.red :
-                             serverStatus === 'Disabled' ? chalk.gray : chalk.yellow;
+          const enabledColor = disabled ? chalk.gray : chalk.green;
+          const enabledMark = disabled ? chalk.gray('✗') : chalk.green('✓');
+
+          // Build command/URL string
+          let command = '';
+          if (server.type === 'stdio') {
+              command = `${server.command} ${server.args.join(' ')}`;
+          } else {
+              command = server.url || '';
+          }
 
           return {
               name: server.name,
               type: typeColor(server.type),
-              status: statusColor(serverStatus),
-              tools: toolsCount === null ? '-' : toolsCount,
-              plainStatus: serverStatus
+              enabled: enabledMark,
+              command: command,
+              disabled
           };
       });
 
       // Calculate column widths
-      const nameWidth = Math.max(4, ...rows.map(r => r.name.length));
+      const nameWidth = Math.max(4, ...rows.map(r => getDisplayWidth(r.name)));
       const typeWidth = 6;
-      const statusWidth = Math.max(8, ...rows.map(r => r.status.length));
-      const toolsWidth = 6;
+      const enabledWidth = 7;
+      const commandWidth = Math.max(7, ...rows.map(r => getDisplayWidth(r.command)));
 
       // Print table header
       console.log('');
-      console.log(chalk.bold(`${'NAME'.padEnd(nameWidth)}  ${'TYPE'.padEnd(typeWidth)}  ${'STATUS'.padEnd(statusWidth)}  ${'TOOLS'}`));
-      console.log(chalk.gray('─'.repeat(nameWidth) + '  ' + '─'.repeat(typeWidth) + '  ' + '─'.repeat(statusWidth) + '  ' + '─'.repeat(toolsWidth)));
+      console.log(chalk.bold(`${'NAME'.padEnd(nameWidth)}  ${'TYPE'.padEnd(typeWidth)}  ${'ENABLED'.padEnd(enabledWidth)}  ${'COMMAND/URL'}`));
+      console.log(chalk.gray('─'.repeat(nameWidth) + '  ' + '─'.repeat(typeWidth) + '  ' + '─'.repeat(enabledWidth) + '  ' + '─'.repeat(commandWidth)));
 
       // Print table rows
       rows.forEach(row => {
-          const statusStr = String(row.status).padEnd(statusWidth);
-          console.log(`${row.name.padEnd(nameWidth)}  ${String(row.type).padEnd(typeWidth)}  ${statusStr}  ${String(row.tools)}`);
+          const commandStr = row.disabled ? chalk.gray(row.command) : row.command;
+          console.log(`${padEndWidth(row.name, nameWidth)}  ${String(row.type).padEnd(typeWidth)}  ${String(row.enabled).padEnd(enabledWidth)}  ${commandStr}`);
       });
 
+      console.log('');
+      console.log(chalk.gray(`Total: ${servers.length} server(s)`));
       console.log('');
   };
 

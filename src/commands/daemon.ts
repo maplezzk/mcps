@@ -142,17 +142,65 @@ const statusAction = async (options?: any) => {
      const port = parseInt(options?.port || process.env.MCPS_PORT || DAEMON_PORT);
      const res = await fetch(`http://localhost:${port}/status`);
      const data = await res.json();
+
+     console.log('');
      console.log(chalk.green(`Daemon is running (v${data.version})`));
+
      if (data.connections && data.connections.length > 0) {
-        console.log(chalk.bold('\nActive Connections:'));
-        data.connections.forEach((conn: any) => {
-            const count = conn.toolsCount !== null ? `(${conn.toolsCount} tools)` : (data.initializing ? '(initializing)' : '(error listing tools)');
-            const status = conn.status === 'error' ? chalk.red('[Error]') : '';
-            console.log(chalk.cyan(`- ${conn.name} ${chalk.gray(count)} ${status}`));
+        // Helper function to calculate display width (Chinese chars count as 2)
+        const getDisplayWidth = (str: string): number => {
+            let width = 0;
+            for (const char of str) {
+                if (char.charCodeAt(0) > 127) {
+                    width += 2;
+                } else {
+                    width += 1;
+                }
+            }
+            return width;
+        };
+
+        // Helper function to pad string considering Chinese characters
+        const padEndWidth = (str: string, targetWidth: number): string => {
+            const displayWidth = getDisplayWidth(str);
+            const padding = Math.max(0, targetWidth - displayWidth);
+            return str + ' '.repeat(padding);
+        };
+
+        // Build table rows
+        const rows = data.connections.map((conn: any) => {
+            const statusText = conn.status === 'error' ? 'Error' : 'Connected';
+            const statusColor = conn.status === 'error' ? chalk.red : chalk.green;
+            const toolsCount = conn.toolsCount !== null ? conn.toolsCount : '-';
+
+            return {
+                name: conn.name,
+                status: statusColor(statusText),
+                tools: toolsCount
+            };
         });
+
+        // Calculate column widths
+        const nameWidth = Math.max(4, ...rows.map((r: any) => getDisplayWidth(r.name)));
+        const statusWidth = 10;
+        const toolsWidth = 6;
+
+        // Print table header
+        console.log(chalk.bold('\nActive Connections:'));
+        console.log(chalk.bold(`${'NAME'.padEnd(nameWidth)}  ${'STATUS'.padEnd(statusWidth)}  ${'TOOLS'}`));
+        console.log(chalk.gray('─'.repeat(nameWidth) + '  ' + '─'.repeat(statusWidth) + '  ' + '─'.repeat(toolsWidth)));
+
+        // Print table rows
+        rows.forEach((row: any) => {
+            console.log(`${padEndWidth(row.name, nameWidth)}  ${String(row.status).padEnd(statusWidth)}  ${String(row.tools)}`);
+        });
+
+        console.log(chalk.gray(`Total: ${data.connections.length} connection(s)`));
      } else {
-         console.log(chalk.gray('No active connections.'));
+         console.log(chalk.gray('\nNo active connections.'));
      }
+
+     console.log('');
    } catch (e) {
      console.error(chalk.red('Daemon is not running.'));
    }
