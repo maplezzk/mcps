@@ -31,6 +31,7 @@ export const registerToolsCommand = (program: Command) => {
   program.command('tools <server>')
     .description('List available tools on a server')
     .option('-s, --simple', 'Show only tool names')
+    .option('-t, --tool <name...>', 'Filter tools by name(s)')
     .action(async (serverName, options) => {
       // Check if server exists in config first
       const serverConfig = configManager.getServer(serverName);
@@ -44,15 +45,26 @@ export const registerToolsCommand = (program: Command) => {
         await DaemonClient.ensureDaemon();
 
         // List via daemon
-        const tools = await DaemonClient.listTools(serverName);
+        let tools = await DaemonClient.listTools(serverName);
+
+        // Filter by tool names if specified
+        if (options.tool && options.tool.length > 0) {
+          const filters = Array.isArray(options.tool) ? options.tool : [options.tool];
+          tools = tools.filter((tool: any) =>
+            filters.some((filter: string) =>
+              tool.name.toLowerCase().includes(filter.toLowerCase())
+            )
+          );
+        }
+
+        if (!tools || tools.length === 0) {
+          console.log(chalk.yellow('No tools found.'));
+          return;
+        }
 
         if (options.simple) {
           // Simple mode: only show tool names
-          if (!tools || tools.length === 0) {
-            console.log(chalk.yellow('No tools found.'));
-          } else {
-            tools.forEach((tool: any) => console.log(tool.name));
-          }
+          tools.forEach((tool: any) => console.log(tool.name));
           console.log(chalk.gray(`\nTotal: ${tools.length} tool(s)`));
         } else {
           // Detailed mode: show full tool information
