@@ -23,9 +23,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'  # Node 22 自带 npm 10.9+，但 Trusted Publisher 需要 npm 11.5.1+
           cache: 'npm'
           # 注意：使用 Trusted Publisher 时不需要 registry-url 和 NODE_AUTH_TOKEN
+
+      - name: Update npm to latest
+        run: npm install -g npm@latest  # 确保使用支持 Trusted Publisher 的 npm 版本
+
+      - name: Check npm version
+        run: npm --version
 
       - name: Install dependencies
         run: npm ci
