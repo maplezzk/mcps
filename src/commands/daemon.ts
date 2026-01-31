@@ -188,16 +188,16 @@ const statusAction = async (options?: any) => {
         // Print table header
         console.log(chalk.bold('\nActive Connections:'));
         console.log(chalk.bold(`${'NAME'.padEnd(nameWidth)}  ${'STATUS'.padEnd(statusWidth)}  ${'TOOLS'}`));
-        console.log(chalk.gray('─'.repeat(nameWidth) + '  ' + '─'.repeat(statusWidth) + '  ' + '─'.repeat(toolsWidth)));
+        console.log(chalk.cyan('─'.repeat(nameWidth) + '  ' + '─'.repeat(statusWidth) + '  ' + '─'.repeat(toolsWidth)));
 
         // Print table rows
         rows.forEach((row: any) => {
             console.log(`${padEndWidth(row.name, nameWidth)}  ${String(row.status).padEnd(statusWidth)}  ${String(row.tools)}`);
         });
 
-        console.log(chalk.gray(`Total: ${data.connections.length} connection(s)`));
+        console.log(chalk.cyan(`Total: ${data.connections.length} connection(s)`));
      } else {
-         console.log(chalk.gray('\nNo active connections.'));
+         console.log(chalk.yellow('\nNo active connections.'));
      }
 
      console.log('');

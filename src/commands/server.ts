@@ -34,9 +34,8 @@ export const registerServerCommands = (program: Command) => {
       // Build table rows
       const rows = servers.map(server => {
           const disabled = (server as any).disabled === true;
-          const typeColor = server.type === 'stdio' ? chalk.magenta : chalk.yellow;
-          const enabledColor = disabled ? chalk.gray : chalk.green;
-          const enabledMark = disabled ? chalk.gray('✗') : chalk.green('✓');
+          const typeColor = server.type === 'stdio' ? chalk.cyan : chalk.yellow;
+          const enabledMark = disabled ? chalk.red('✗') : chalk.green('✓');
 
           // Build command/URL string
           let command = '';
@@ -68,12 +67,11 @@ export const registerServerCommands = (program: Command) => {
 
       // Print table rows
       rows.forEach(row => {
-          const commandStr = row.disabled ? chalk.gray(row.command) : row.command;
-          console.log(`${padEndWidth(row.name, nameWidth)}  ${String(row.type).padEnd(typeWidth)}  ${String(row.enabled).padEnd(enabledWidth)}  ${commandStr}`);
+          console.log(`${padEndWidth(row.name, nameWidth)}  ${String(row.type).padEnd(typeWidth)}  ${String(row.enabled).padEnd(enabledWidth)}  ${row.command}`);
       });
 
       console.log('');
-      console.log(chalk.gray(`Total: ${servers.length} server(s)`));
+      console.log(chalk.cyan(`Total: ${servers.length} server(s)`));
       console.log('');
   };
 
