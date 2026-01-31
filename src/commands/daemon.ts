@@ -60,7 +60,7 @@ const startAction = async (options: any) => {
   }
 
   // Otherwise, spawn a detached process
-  console.log(chalk.gray('Starting daemon in background...'));
+  console.log(chalk.cyan('Starting daemon in background...'));
   let childFailed = false;
   const subprocess = spawn(process.execPath, [process.argv[1], 'daemon', 'start'], {
       detached: true,
@@ -75,7 +75,7 @@ const startAction = async (options: any) => {
   // Stream logs to current console while waiting for ready
   if (subprocess.stdout) {
       subprocess.stdout.on('data', (data) => {
-          process.stdout.write(chalk.gray(`[Daemon] ${data}`));
+          process.stdout.write(`[Daemon] ${data}`);
       });
   }
   if (subprocess.stderr) {
