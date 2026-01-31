@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { configManager } from '../core/config.js';
+import { DaemonClient } from '../core/daemon-client.js';
 
 export const registerServerCommands = (program: Command) => {
   const listServersAction = () => {
@@ -67,7 +68,35 @@ export const registerServerCommands = (program: Command) => {
       }
   };
 
-  const updateServerAction = (name: string, options: any) => {
+  const updateServerAction = async (name: string | undefined, options: any) => {
+      // If no server name provided, refresh all connections
+      if (!name) {
+          try {
+              await DaemonClient.ensureDaemon();
+
+              // Call daemon restart API to refresh all connections
+              const port = parseInt(process.env.MCPS_PORT || '4100');
+              const res = await fetch(`http://localhost:${port}/restart`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({})
+              });
+
+              if (res.ok) {
+                  const data = await res.json();
+                  console.log(chalk.green(data.message));
+                  console.log(chalk.gray('All servers will be reconnected on next use.'));
+              } else {
+                  throw new Error('Failed to refresh connections');
+              }
+          } catch (error: any) {
+              console.error(chalk.red(`Failed to refresh all servers: ${error.message}`));
+              console.error(chalk.yellow('Make sure the daemon is running (use: mcps start)'));
+          }
+          return;
+      }
+
+      // Update specific server configuration
       try {
           const updates: any = {};
           if (options.command) updates.command = options.command;
@@ -76,11 +105,13 @@ export const registerServerCommands = (program: Command) => {
 
           if (Object.keys(updates).length === 0) {
               console.log(chalk.yellow('No updates provided.'));
+              console.log(chalk.gray('Use: mcps update <server> --command <cmd> --args <args>'));
               return;
           }
 
           configManager.updateServer(name, updates);
           console.log(chalk.green(`Server "${name}" updated.`));
+          console.log(chalk.gray('Note: Restart the daemon to apply changes: mcps restart'));
       } catch (error: any) {
           console.error(chalk.red(`Error updating server: ${error.message}`));
       }
@@ -111,8 +142,8 @@ export const registerServerCommands = (program: Command) => {
     .action(removeServerAction);
 
   // Update server command
-  program.command('update <name>')
-    .description('Update a server')
+  program.command('update [name]')
+    .description('Update a server configuration or refresh all servers')
     .option('--command <command>', 'New command')
     .option('--args [args...]', 'New arguments for the command')
     .option('--url <url>', 'New URL')
@@ -142,8 +173,8 @@ export const registerServerCommands = (program: Command) => {
     .description('Remove a server')
     .action(removeServerAction);
 
-  serverCmd.command('update <name>')
-    .description('Update a server')
+  serverCmd.command('update [name]')
+    .description('Update a server configuration or refresh all servers')
     .option('--command <command>', 'New command')
     .option('--args [args...]', 'New arguments for the command')
     .option('--url <url>', 'New URL')

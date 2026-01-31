@@ -84,10 +84,13 @@ mcps rm my-server
 
 **Update a server:**
 ```bash
-# Update command
+# Refresh all server connections
+mcps update
+
+# Update server command
 mcps update my-server --command new-command
 
-# Update arguments
+# Update server arguments
 mcps update my-server --args arg1 arg2
 ```
 

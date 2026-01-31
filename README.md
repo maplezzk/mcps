@@ -84,10 +84,13 @@ mcps rm my-server
 
 **更新服务：**
 ```bash
-# 更新命令
+# 刷新所有服务连接
+mcps update
+
+# 更新特定服务的命令
 mcps update my-server --command new-command
 
-# 更新参数
+# 更新特定服务的参数
 mcps update my-server --args arg1 arg2
 ```
 
