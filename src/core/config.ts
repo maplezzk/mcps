@@ -3,27 +3,34 @@ import path from 'path';
 import os from 'os';
 import { Config, ConfigSchema, ServerConfig, ServerConfigSchema } from '../types/config.js';
 
-const CONFIG_DIR = process.env.MCPS_CONFIG_DIR || path.join(os.homedir(), '.mcps');
-const CONFIG_FILE = path.join(CONFIG_DIR, 'mcp.json');
+const getDefaultConfigDir = () => process.env.MCPS_CONFIG_DIR || path.join(os.homedir(), '.mcps');
 
 export class ConfigManager {
+  private configDir: string;
+  private configFile: string;
+
+  constructor(configDir?: string) {
+    this.configDir = configDir || getDefaultConfigDir();
+    this.configFile = path.join(this.configDir, 'mcp.json');
+  }
+
   private ensureConfigDir() {
-    if (!fs.existsSync(CONFIG_DIR)) {
-      fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    if (!fs.existsSync(this.configDir)) {
+      fs.mkdirSync(this.configDir, { recursive: true });
     }
   }
 
   private loadConfig(): Config {
     this.ensureConfigDir();
-    if (!fs.existsSync(CONFIG_FILE)) {
+    if (!fs.existsSync(this.configFile)) {
       return { servers: [] };
     }
     try {
-      const content = fs.readFileSync(CONFIG_FILE, 'utf-8');
+      const content = fs.readFileSync(this.configFile, 'utf-8');
       const json = JSON.parse(content);
-      
+
       // Log for debugging (can be removed later or controlled by verbose flag)
-      // console.log('Loading config from:', CONFIG_FILE);
+      // console.log('Loading config from:', this.configFile);
 
       if (!json || typeof json !== 'object') {
           console.warn('Invalid config file structure. Expected JSON object.');
@@ -68,7 +75,7 @@ export class ConfigManager {
 
   private saveConfig(config: Config) {
     this.ensureConfigDir();
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+    fs.writeFileSync(this.configFile, JSON.stringify(config, null, 2), 'utf-8');
   }
 
   listServers(): ServerConfig[] {
