@@ -10,6 +10,44 @@ import { DAEMON_PORT } from '../core/constants.js';
 const require = createRequire(import.meta.url);
 const pkg = require('../../package.json');
 
+// Helper function to make HTTP requests to daemon (bypassing proxy)
+function daemonRequest(method: string, path: string, body?: string): Promise<{ status: number; ok: boolean; data: any }> {
+  return new Promise((resolve, reject) => {
+    const port = parseInt(process.env.MCPS_PORT || String(DAEMON_PORT));
+    const options = {
+      method,
+      hostname: '127.0.0.1',
+      port,
+      path,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          resolve({
+            status: res.statusCode || 500,
+            ok: (res.statusCode || 500) >= 200 && (res.statusCode || 500) < 300,
+            data: data ? JSON.parse(data) : {},
+          });
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+
+    req.on('error', reject);
+    if (body) {
+      req.write(body);
+    }
+    req.end();
+  });
+}
+
 // Check if a port is in use
 function isPortInUse(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -47,8 +85,8 @@ const startAction = async (options: any) => {
   if (portInUse) {
     // Try to check if it's our daemon via HTTP
     try {
-      const res = await fetch(`http://localhost:${port}/status`);
-      if (res.ok) {
+      const { ok } = await daemonRequest('GET', '/status');
+      if (ok) {
         console.log(chalk.yellow(`Daemon is already running on port ${port}.`));
         process.exit(0);
         return;
@@ -70,10 +108,34 @@ const startAction = async (options: any) => {
   // Otherwise, spawn a detached process
   console.log(chalk.cyan('Starting daemon in background...'));
   let childFailed = false;
+
+  // Create log file paths
+  const logDir = '/tmp/mcps-daemon';
+  const stdoutLog = `${logDir}/stdout.log`;
+  const stderrLog = `${logDir}/stderr.log`;
+
+  // Ensure log directory exists
+  const fs = await import('fs');
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+  }
+
+  // Clear old log files for fresh start
+  if (fs.existsSync(stdoutLog)) {
+    fs.truncateSync(stdoutLog, 0);
+  }
+  if (fs.existsSync(stderrLog)) {
+    fs.truncateSync(stderrLog, 0);
+  }
+
+  // Open file descriptors for stdout and stderr
+  const stdoutFd = fs.openSync(stdoutLog, 'a');
+  const stderrFd = fs.openSync(stderrLog, 'a');
+
   const subprocess = spawn(process.execPath, [process.argv[1], 'daemon', 'start'], {
       detached: true,
-      // Pipe stdout/stderr so we can see initialization logs
-      stdio: ['ignore', 'pipe', 'pipe'],
+      // Pipe stdout/stderr to log files
+      stdio: ['ignore', stdoutFd, stderrFd],
       env: {
           ...process.env,
           MCPS_DAEMON_DETACHED: 'true',
@@ -81,32 +143,14 @@ const startAction = async (options: any) => {
       }
   });
 
-  // Stream logs to current console while waiting for ready
-  if (subprocess.stdout) {
-      subprocess.stdout.on('data', (data) => {
-          process.stdout.write(`${data}`);
-      });
-  }
-  if (subprocess.stderr) {
-      subprocess.stderr.on('data', (data) => {
-          const msg = data.toString();
-          // Detect port conflict in child process
-          if (msg.includes('Port') && msg.includes('is already in use')) {
-              childFailed = true;
-          }
-          // Only show error output if it contains critical errors
-          if (msg.includes('Error') || msg.includes('EADDRINUSE')) {
-              process.stderr.write(chalk.red(`[Daemon] ${msg}`));
-          }
-      });
-  }
-
   subprocess.unref();
 
   // Wait briefly to ensure it started (optional but good UX)
   // We can poll status for a second
   const start = Date.now();
   // Use timeout from option/env (convert to ms)
+  let lastLogSize = 0;  // Track last read position to avoid duplicate logs
+
   while (Date.now() - start < timeout * 1000) {
       // If child reported port conflict, check if daemon is actually running
       if (childFailed) {
@@ -119,26 +163,47 @@ const startAction = async (options: any) => {
           }
       }
 
+      // Show only new logs (avoid duplicates)
       try {
-          const res = await fetch(`http://localhost:${port}/status`);
-          if (res.ok) {
-              const data = await res.json();
-              if (data.initialized) {
-                  console.log(chalk.green(`Daemon started successfully on port ${port}.`));
-                  process.exit(0);
+          if (fs.existsSync(stdoutLog)) {
+              const { size } = fs.statSync(stdoutLog);
+              if (size > lastLogSize) {
+                  // Read new logs only
+                  const buffer = Buffer.alloc(size - lastLogSize);
+                  const fd = fs.openSync(stdoutLog, 'r');
+                  fs.readSync(fd, buffer, 0, size - lastLogSize, lastLogSize);
+                  fs.closeSync(fd);
+
+                  const newLogs = buffer.toString('utf-8');
+                  newLogs.split('\n').forEach(line => {
+                      if (line.trim()) process.stdout.write(line + '\n');
+                  });
+
+                  lastLogSize = size;
               }
+          }
+      } catch (e) {
+          // Ignore log read errors
+      }
+
+      try {
+          const { ok, data } = await daemonRequest('GET', '/status');
+          if (ok && data.initialized) {
+              console.log(chalk.green(`Daemon started successfully on port ${port}.`));
+              console.log(chalk.gray(`Logs: ${stdoutLog}`));
+              process.exit(0);
           }
       } catch {}
       await new Promise(r => setTimeout(r, 200));
   }
   console.log(chalk.yellow('Daemon started (async check timeout, but likely running).'));
+  console.log(chalk.gray(`Logs: ${stdoutLog}`));
   process.exit(0);
 };
 
 const stopAction = async (options?: any) => {
    try {
-     const port = parseInt(options?.port || process.env.MCPS_PORT || DAEMON_PORT);
-     await fetch(`http://localhost:${port}/stop`, { method: 'POST' });
+     await daemonRequest('POST', '/stop');
      console.log(chalk.green('Daemon stopped successfully.'));
    } catch (e) {
      console.error(chalk.red('Failed to stop daemon. Is it running?'));
@@ -147,9 +212,7 @@ const stopAction = async (options?: any) => {
 
 const statusAction = async (options?: any) => {
    try {
-     const port = parseInt(options?.port || process.env.MCPS_PORT || DAEMON_PORT);
-     const res = await fetch(`http://localhost:${port}/status`);
-     const data = await res.json();
+     const { data } = await daemonRequest('GET', '/status');
 
      console.log('');
      console.log(chalk.green(`Daemon is running (v${data.version})`));
@@ -216,15 +279,104 @@ const statusAction = async (options?: any) => {
 
 const restartAction = async (serverName: string | undefined, options?: any) => {
    try {
-     const port = parseInt(options?.port || process.env.MCPS_PORT || DAEMON_PORT);
-     const res = await fetch(`http://localhost:${port}/restart`, {
-        method: 'POST',
-        body: JSON.stringify({ server: serverName })
-     });
-     const data = await res.json();
-     console.log(chalk.green(data.message));
-   } catch (e) {
-     console.error(chalk.red('Failed to restart. Is the daemon running?'));
+     const body = serverName ? JSON.stringify({ server: serverName }) : JSON.stringify({});
+
+     // 启动日志显示（在后台读取守护进程日志）
+     const logPath = '/tmp/mcps-daemon/stdout.log';
+     const fs = await import('fs');
+
+     // 发送 restart 请求
+     const requestPromise = daemonRequest('POST', '/restart', body);
+
+     // 在后台显示日志
+     const showLogs = async () => {
+       try {
+         if (!fs.existsSync(logPath)) {
+           return;
+         }
+
+         // 获取当前日志文件大小
+         let lastSize = fs.statSync(logPath).size;
+
+         // 等待请求完成，同时显示新日志
+         const startTime = Date.now();
+         const timeout = 30000; // 30秒超时
+
+         while (Date.now() - startTime < timeout) {
+           await new Promise(r => setTimeout(r, 200)); // 每200ms检查一次
+
+           try {
+             const { size: currentSize } = fs.statSync(logPath);
+             if (currentSize > lastSize) {
+               // 读取新增的日志内容
+               const buffer = Buffer.alloc(currentSize - lastSize);
+               const fd = fs.openSync(logPath, 'r');
+               fs.readSync(fd, buffer, 0, currentSize - lastSize, lastSize);
+               fs.closeSync(fd);
+
+               const newLogs = buffer.toString('utf-8');
+               // 只显示关闭和重启相关的日志
+               const relevantLogs = newLogs.split('\n').filter(line => {
+                 return line.includes('Closing connection to') ||
+                        line.includes('Connected ✓') ||
+                        line.includes('Connecting to') ||
+                        line.includes('Connected: ') ||
+                        line.trim().startsWith('- '); // 包含服务名行
+               });
+
+               if (relevantLogs.length > 0) {
+                   // 检查是否已经完成
+                   const hasCompletion = newLogs.includes('All servers reinitialized successfully');
+
+                   relevantLogs.forEach(log => {
+                     if (log.trim()) {
+                       if (log.includes('Closing')) {
+                         console.log(chalk.yellow(log));
+                       } else if (log.includes('Connected ✓')) {
+                         console.log(chalk.green(log));
+                       } else if (log.includes('Connected:')) {
+                         // 最终连接统计
+                         console.log(chalk.green(log));
+                       } else {
+                         console.log(log);
+                       }
+                     }
+                   });
+
+                   if (hasCompletion) {
+                     break; // 完成后退出
+                   }
+
+                   // 更新起始位置
+                   lastSize = currentSize;
+               }
+             }
+           } catch (e) {
+             // 忽略读取错误
+           }
+         }
+       } catch (e) {
+         // 忽略日志显示错误
+       }
+     };
+
+     // 同时执行请求和日志显示
+     const [{ status, ok, data }] = await Promise.all([
+       requestPromise,
+       showLogs()
+     ]);
+
+     if (ok) {
+       console.log(chalk.green(data.message));
+     } else if (status === 404) {
+       console.error(chalk.yellow(data.error || 'Server not found'));
+     } else {
+       console.error(chalk.red(data.error || 'Failed to restart'));
+     }
+   } catch (e: any) {
+     console.error(chalk.red('Failed to restart.'));
+     console.error(chalk.red(`Error: ${e.message}`));
+     console.error(chalk.gray(`Stack: ${e.stack}`));
    }
 };
 
@@ -315,17 +467,55 @@ const startDaemon = (port: number) => {
             req.on('end', async () => {
                try {
                  const { server: serverName } = JSON.parse(body || '{}');
-                 
+                 const verbose = process.env.MCPS_VERBOSE === 'true';
+
+                 if (verbose) {
+                   console.log(`[Daemon] Received restart request for: ${serverName || 'all servers'}`);
+                 }
+
                  if (serverName) {
+                   // Restart specific server connection
+                   if (verbose) {
+                     console.log(`[Daemon] Closing server: ${serverName}`);
+                   }
                    const closed = await connectionPool.closeClient(serverName);
-                   res.writeHead(200, { 'Content-Type': 'application/json' });
-                   res.end(JSON.stringify({ message: `Server "${serverName}" connection closed. It will be reconnected on next call.`, closed }));
+                   if (closed) {
+                     // Reconnect to the specific server
+                     try {
+                       if (verbose) {
+                         console.log(`[Daemon] Reconnecting to: ${serverName}`);
+                       }
+                       await connectionPool.getClient(serverName);
+                       if (verbose) {
+                         console.log(`[Daemon] Successfully restarted: ${serverName}`);
+                       }
+                       res.writeHead(200, { 'Content-Type': 'application/json' });
+                       res.end(JSON.stringify({ message: `Server "${serverName}" restarted successfully.` }));
+                     } catch (error: any) {
+                       console.error(`[Daemon] Failed to reconnect to ${serverName}:`, error);
+                       res.writeHead(500, { 'Content-Type': 'application/json' });
+                       res.end(JSON.stringify({ error: `Failed to reconnect to "${serverName}": ${error.message}` }));
+                     }
+                   } else {
+                     if (verbose) {
+                       console.log(`[Daemon] Server not found: ${serverName}`);
+                     }
+                     res.writeHead(404, { 'Content-Type': 'application/json' });
+                     res.end(JSON.stringify({ error: `Server "${serverName}" not found or not connected.` }));
+                   }
                  } else {
+                   // Restart all connections
+                   console.log('Closing all connections...');
                    await connectionPool.closeAll();
+                   console.log('All connections closed. Reinitializing...');
+                   // Reinitialize all servers
+                   await connectionPool.initializeAll();
+                   console.log('All servers reinitialized successfully');
                    res.writeHead(200, { 'Content-Type': 'application/json' });
-                   res.end(JSON.stringify({ message: 'All connections closed.' }));
+                   res.end(JSON.stringify({ message: 'All servers restarted successfully.' }));
                  }
                } catch (error: any) {
+                 console.error('[Daemon] Error during restart:', error);
                  res.writeHead(500, { 'Content-Type': 'application/json' });
                  res.end(JSON.stringify({ error: error.message }));
                }
