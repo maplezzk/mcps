@@ -139,7 +139,8 @@ const startAction = async (options: any) => {
       env: {
           ...process.env,
           MCPS_DAEMON_DETACHED: 'true',
-          MCPS_VERBOSE: options.verbose ? 'true' : 'false'
+          MCPS_VERBOSE: options.verbose ? 'true' : 'false',
+          MCPS_CONNECTION_TIMEOUT: String((parseInt(options.connectionTimeout || process.env.MCPS_CONNECTION_TIMEOUT || '20', 10)) * 1000)
       }
   });
 
@@ -445,6 +446,7 @@ export const registerDaemonCommand = (program: Command) => {
     .description('Start the daemon')
     .option('-p, --port <number>', 'Daemon port', String(DAEMON_PORT))
     .option('-t, --timeout <seconds>', 'Startup timeout in seconds (default: 30)')
+    .option('-c, --connection-timeout <seconds>', 'Server connection timeout in seconds (default: 20)')
     .option('-v, --verbose', 'Show detailed logs')
     .action((options) => startAction(options));
 
@@ -473,6 +475,7 @@ export const registerDaemonCommand = (program: Command) => {
   daemonCmd.command('start', { isDefault: true, hidden: true })
     .description('Start the daemon (default)')
     .option('-t, --timeout <seconds>', 'Startup timeout in seconds (default: 30)')
+    .option('-c, --connection-timeout <seconds>', 'Server connection timeout in seconds (default: 20)')
     .action((options) => startAction(options));
 
   daemonCmd.command('stop')

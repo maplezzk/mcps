@@ -88,6 +88,9 @@ export class ConnectionPool {
 
     const verbose = process.env.MCPS_VERBOSE === 'true';
 
+    // 获取连接超时时间（从环境变量或默认 20 秒）
+    const connectionTimeout = parseInt(process.env.MCPS_CONNECTION_TIMEOUT || '20000', 10);
+
     // 过滤掉 disabled 的服务器
     const enabledServers = servers.filter(server => {
       const disabled = (server as any).disabled === true;
@@ -110,7 +113,7 @@ export class ConnectionPool {
     for (const server of enabledServers) {
         process.stdout.write(`- ${server.name}... `);
         try {
-            await this.getClient(server.name, { timeoutMs: 8000 });
+            await this.getClient(server.name, { timeoutMs: connectionTimeout });
             results.push({ name: server.name, success: true });
             console.log('Connected ✓');
         } catch (error: any) {
