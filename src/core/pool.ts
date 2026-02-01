@@ -61,7 +61,7 @@ export class ConnectionPool {
     for (const [name, client] of this.clients) {
       console.log(`[Daemon] Closing connection to ${name}...`);
       try {
-        await client.close();
+        client.close(); // 同步调用，不使用 await
       } catch (e) {
         console.error(`[Daemon] Error closing ${name}:`, e);
       }
