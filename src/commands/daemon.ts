@@ -384,6 +384,15 @@ const startDaemon = (port: number) => {
                 return;
               }
 
+              // Try to use cached tools first
+              const cachedTools = connectionPool.getCachedTools(serverName);
+              if (cachedTools !== null) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ tools: cachedTools }));
+                return;
+              }
+
+              // Fallback: fetch from client if not cached
               const client = await connectionPool.getClient(serverName);
               const toolsResult = await client.listTools();
 

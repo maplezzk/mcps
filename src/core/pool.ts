@@ -4,7 +4,7 @@ import { ServerConfig } from '../types/config.js';
 
 export class ConnectionPool {
   private clients: Map<string, McpClientService> = new Map();
-  private toolsCache: Map<string, number> = new Map();
+  private toolsCache: Map<string, any[]> = new Map(); // Cache full tools result
   private initializing = false;
   private initialized = false;
 
@@ -30,16 +30,20 @@ export class ConnectionPool {
     }
     this.clients.set(serverName, client);
 
-    // Cache tools count after connection
+    // Cache full tools result after connection
     try {
       const result = await client.listTools();
-      this.toolsCache.set(serverName, result.tools.length);
+      this.toolsCache.set(serverName, result.tools || []);
     } catch (e) {
-      // Connection succeeded but listTools failed, cache as 0
-      this.toolsCache.set(serverName, 0);
+      // Connection succeeded but listTools failed, cache as empty array
+      this.toolsCache.set(serverName, []);
     }
 
     return client;
+  }
+
+  getCachedTools(serverName: string): any[] | null {
+    return this.toolsCache.has(serverName) ? this.toolsCache.get(serverName)! : null;
   }
 
   async closeClient(serverName: string) {
@@ -151,13 +155,13 @@ export class ConnectionPool {
       if (includeTools) {
         // Use cached tools count instead of calling listTools again
         if (this.toolsCache.has(name)) {
-          toolsCount = this.toolsCache.get(name)!;
+          toolsCount = this.toolsCache.get(name)!.length;
         } else {
           // Fallback: if not cached, fetch it now
           try {
             const result = await client.listTools();
             toolsCount = result.tools.length;
-            this.toolsCache.set(name, toolsCount);
+            this.toolsCache.set(name, result.tools || []);
           } catch (e) {
             status = 'error';
           }
