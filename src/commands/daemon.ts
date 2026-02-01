@@ -34,6 +34,14 @@ function isPortInUse(port: number): Promise<boolean> {
 const startAction = async (options: any) => {
   const port = parseInt(options.port || process.env.MCPS_PORT || DAEMON_PORT);
 
+  // Get timeout from option, env, or config (in seconds)
+  let timeout = 30; // Default 30 seconds for daemon start
+  if (options.timeout) {
+    timeout = parseInt(options.timeout, 10);
+  } else if (process.env.MCPS_DAEMON_TIMEOUT) {
+    timeout = parseInt(process.env.MCPS_DAEMON_TIMEOUT, 10);
+  }
+
   // Check if port is in use (more reliable than HTTP check)
   const portInUse = await isPortInUse(port);
   if (portInUse) {
@@ -98,8 +106,8 @@ const startAction = async (options: any) => {
   // Wait briefly to ensure it started (optional but good UX)
   // We can poll status for a second
   const start = Date.now();
-  // Increased timeout to allow for connection initialization
-  while (Date.now() - start < 30000) {
+  // Use timeout from option/env (convert to ms)
+  while (Date.now() - start < timeout * 1000) {
       // If child reported port conflict, check if daemon is actually running
       if (childFailed) {
           const stillRunning = await isPortInUse(port);
@@ -226,6 +234,7 @@ export const registerDaemonCommand = (program: Command) => {
   program.command('start')
     .description('Start the daemon')
     .option('-p, --port <number>', 'Daemon port', String(DAEMON_PORT))
+    .option('-t, --timeout <seconds>', 'Startup timeout in seconds (default: 30)')
     .option('-v, --verbose', 'Show detailed logs')
     .action((options) => startAction(options));
 
@@ -253,6 +262,7 @@ export const registerDaemonCommand = (program: Command) => {
 
   daemonCmd.command('start', { isDefault: true, hidden: true })
     .description('Start the daemon (default)')
+    .option('-t, --timeout <seconds>', 'Startup timeout in seconds (default: 30)')
     .action((options) => startAction(options));
 
   daemonCmd.command('stop')

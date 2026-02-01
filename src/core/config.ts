@@ -112,6 +112,24 @@ export class ConfigManager {
     config.mcpServers[name] = result.data;
     this.saveConfig(config);
   }
+
+  getDaemonTimeout(): number {
+    // Priority: environment variable > config file > default
+    const envTimeout = process.env.MCPS_DAEMON_TIMEOUT;
+    if (envTimeout) {
+      const parsed = parseInt(envTimeout, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        return parsed * 1000; // Convert seconds to milliseconds
+      }
+    }
+
+    const config = this.loadConfig();
+    if (config.daemonTimeout) {
+      return config.daemonTimeout;
+    }
+
+    return 20000; // Default 20 seconds
+  }
 }
 
 export const configManager = new ConfigManager();

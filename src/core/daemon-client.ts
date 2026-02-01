@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import chalk from 'chalk';
 import { DAEMON_BASE_URL } from './constants.js';
+import { configManager } from './config.js';
 
 export class DaemonClient {
   static async isRunning(): Promise<boolean> {
@@ -12,9 +13,12 @@ export class DaemonClient {
     }
   }
 
-  static async startDaemon(): Promise<void> {
+  static async startDaemon(timeout?: number): Promise<void> {
     console.log(chalk.gray('Starting background daemon...'));
-    
+
+    // Get timeout from parameter or config
+    const daemonTimeout = timeout || configManager.getDaemonTimeout();
+
     // Use process.argv[1] which points to the CLI entry point
     // detached: true allows the child to keep running after parent exits
     const subprocess = spawn(process.execPath, [process.argv[1], 'daemon', 'start'], {
@@ -27,21 +31,21 @@ export class DaemonClient {
 
     // Wait for daemon to be ready
     const start = Date.now();
-    while (Date.now() - start < 5000) { // 5s timeout
+    while (Date.now() - start < daemonTimeout) {
       if (await this.isRunning()) {
         return;
       }
       await new Promise(resolve => setTimeout(resolve, 200));
     }
-    
-    throw new Error('Daemon failed to start within timeout');
+
+    throw new Error(`Daemon failed to start within ${daemonTimeout / 1000}s timeout`);
   }
 
-  static async ensureDaemon(): Promise<void> {
+  static async ensureDaemon(timeout?: number): Promise<void> {
     if (await this.isRunning()) {
       return;
     }
-    await this.startDaemon();
+    await this.startDaemon(timeout);
   }
 
   static async executeTool(serverName: string, toolName: string, args: any) {

@@ -26,6 +26,7 @@ export const ServerConfigSchema = z.union([
 // Standard MCP config format (mcpServers)
 export const ConfigSchema = z.object({
   mcpServers: z.record(z.string(), ServerConfigSchema),
+  daemonTimeout: z.number().optional(),
 });
 
 export type StdioServerConfig = z.infer<typeof StdioServerConfigSchema>;
