@@ -203,8 +203,66 @@ const startAction = async (options: any) => {
 
 const stopAction = async (options?: any) => {
    try {
-     await daemonRequest('POST', '/stop');
-     console.log(chalk.green('Daemon stopped successfully.'));
+     const logPath = '/tmp/mcps-daemon/stdout.log';
+     const fs = await import('fs');
+
+     // 发送 stop 请求并显示日志
+     const requestPromise = daemonRequest('POST', '/stop');
+
+     // 显示关闭日志
+     const showLogs = async () => {
+       try {
+         if (!fs.existsSync(logPath)) {
+           return;
+         }
+
+         let lastSize = fs.statSync(logPath).size;
+         const startTime = Date.now();
+         const timeout = 5000; // 5秒超时
+
+         while (Date.now() - startTime < timeout) {
+           await new Promise(r => setTimeout(r, 200));
+
+           try {
+             const { size: currentSize } = fs.statSync(logPath);
+             if (currentSize > lastSize) {
+               const buffer = Buffer.alloc(currentSize - lastSize);
+               const fd = fs.openSync(logPath, 'r');
+               fs.readSync(fd, buffer, 0, currentSize - lastSize, lastSize);
+               fs.closeSync(fd);
+
+               const newLogs = buffer.toString('utf-8');
+               const relevantLogs = newLogs.split('\n').filter(line => {
+                 return line.includes('Closing connection to') ||
+                        line.includes('Shutting down');
+               });
+
+               if (relevantLogs.length > 0) {
+                 relevantLogs.forEach(log => {
+                   if (log.trim()) {
+                     console.log(chalk.yellow(log));
+                   }
+                 });
+                 lastSize = currentSize;
+               }
+             }
+           } catch (e) {
+             // 忽略读取错误
+           }
+         }
+       } catch (e) {
+         // 忽略日志显示错误
+       }
+     };
+
+     const [{ ok }] = await Promise.all([
+       requestPromise,
+       showLogs()
+     ]);
+
+     if (ok) {
+       console.log(chalk.green('Daemon stopped successfully.'));
+     }
    } catch (e) {
      console.error(chalk.red('Failed to stop daemon. Is it running?'));
    }
