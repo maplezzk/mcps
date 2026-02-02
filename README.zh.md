@@ -213,29 +213,64 @@ Total: 26 tool(s)
 
 语法：
 ```bash
-mcps call <server_name> <tool_name> [arguments...]
+mcps call <server_name> <tool_name> [options] [arguments...]
 ```
 
 - `<server_name>`: 已配置的 MCP 服务名称
 - `<tool_name>`: 要调用的工具名称
-- `[arguments...]`: 以 `key=value` 形式传递的参数。CLI 会尝试自动将值解析为 JSON（数字、布尔值、对象）。
+- `[options]`: 可选参数（`--raw`, `--json`）
+- `[arguments...]`: 以 `key=value` 形式传递的参数
 
-示例：
+**选项：**
+
+| 选项 | 说明 |
+|------|------|
+| `-r, --raw` | 将所有值作为原始字符串处理（禁用 JSON 解析） |
+| `-j, --json <value>` | 从 JSON 字符串或文件加载参数 |
+
+**默认模式（自动 JSON 解析）：**
+
+默认情况下，参数值会被自动解析为 JSON：
 ```bash
-# 简单的字符串参数
+# 字符串
 mcps call fetch fetch url="https://example.com"
 
-# 带多个参数
-mcps call fetch fetch url="https://example.com" max_length=5000
+# 数字和布尔值会被解析
+mcps call fetch fetch max_length=5000 follow_redirects=true
+# 实际发送: { "max_length": 5000, "follow_redirects": true }
 
-# JSON 对象参数
+# JSON 对象
 mcps call my-server createUser user='{"name": "Alice", "age": 30}'
-
-# 布尔值/数字参数
-mcps call chrome-devtools take_screenshot fullPage=true quality=90
 
 # 混合参数
 mcps call my-server config debug=true timeout=5000 options='{"retries": 3}'
+```
+
+**--raw 模式（仅字符串值）：**
+
+使用 `--raw` 禁用 JSON 解析，所有值保持为字符串：
+```bash
+# ID 和编码保持为字符串
+mcps call my-db createOrder --raw order_id="12345" sku="ABC-001"
+# 实际发送: { "order_id": "12345", "sku": "ABC-001" }
+
+# 带特殊字符的 SQL 查询
+mcps call alibaba-dms createDataChangeOrder --raw \
+  database_id="36005357" \
+  script="DELETE FROM table WHERE id = 'xxx';" \
+  logic=true
+# 实际发送: { "database_id": "36005357", "script": "...", "logic": "true" }
+```
+
+**--json 模式（复杂参数）：**
+
+对于复杂参数，使用 `--json` 从 JSON 字符串或文件加载：
+```bash
+# JSON 字符串
+mcps call my-server createUser --json '{"name": "Alice", "age": 30}'
+
+# 文件
+mcps call my-server createUser --json params.json
 ```
 
 ## 配置文件

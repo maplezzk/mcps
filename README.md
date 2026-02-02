@@ -212,29 +212,64 @@ Total: 26 tool(s)
 
 Syntax:
 ```bash
-mcps call <server_name> <tool_name> [arguments...]
+mcps call <server_name> <tool_name> [options] [arguments...]
 ```
 
 - `<server_name>`: Name of the configured MCP server
 - `<tool_name>`: Name of the tool to call
-- `[arguments...]`: Arguments passed as `key=value` pairs. The CLI attempts to automatically parse values as JSON (numbers, booleans, objects).
+- `[options]`: Optional flags (`--raw`, `--json`)
+- `[arguments...]`: Arguments passed as `key=value` pairs
 
-Examples:
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-r, --raw` | Treat all values as raw strings (disable JSON parsing) |
+| `-j, --json <value>` | Load parameters from JSON string or file |
+
+**Default Mode (Auto JSON Parsing):**
+
+By default, values are automatically parsed as JSON:
 ```bash
-# Simple string argument
+# String
 mcps call fetch fetch url="https://example.com"
 
-# Multiple arguments
-mcps call fetch fetch url="https://example.com" max_length=5000
+# Numbers and booleans are parsed
+mcps call fetch fetch max_length=5000 follow_redirects=true
+# Sends: { "max_length": 5000, "follow_redirects": true }
 
-# JSON object argument
+# JSON object
 mcps call my-server createUser user='{"name": "Alice", "age": 30}'
 
-# Boolean/number arguments
-mcps call chrome-devtools take_screenshot fullPage=true quality=90
-
-# Mixed arguments
+# Mixed
 mcps call my-server config debug=true timeout=5000 options='{"retries": 3}'
+```
+
+**--raw Mode (String Values Only):**
+
+Use `--raw` to disable JSON parsing. All values remain as strings:
+```bash
+# IDs and codes stay as strings
+mcps call my-db createOrder --raw order_id="12345" sku="ABC-001"
+# Sends: { "order_id": "12345", "sku": "ABC-001" }
+
+# SQL queries with special characters
+mcps call alibaba-dms createDataChangeOrder --raw \
+  database_id="36005357" \
+  script="DELETE FROM table WHERE id = 'xxx';" \
+  logic=true
+# Sends: { "database_id": "36005357", "script": "...", "logic": "true" }
+```
+
+**--json Mode (Complex Parameters):**
+
+For complex parameters, use `--json` to load from a JSON string or file:
+```bash
+# From JSON string
+mcps call my-server createUser --json '{"name": "Alice", "age": 30}'
+
+# From file
+mcps call my-server createUser --json params.json
 ```
 
 ## Configuration File
