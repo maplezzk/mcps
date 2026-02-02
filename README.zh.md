@@ -1,0 +1,370 @@
+# mcps - MCP CLI Manager
+
+[English](./README.md) | [简体中文](./README.zh.md)
+
+一个用于管理和交互 [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) 服务的强大命令行工具。
+
+## 功能特性
+
+- 🔌 **服务管理**：轻松添加、移除、查看和更新 MCP 服务（支持 Stdio、SSE 和 HTTP 模式）
+- 🛠️ **工具发现**：查看已配置服务中所有可用的工具
+- 🚀 **工具执行**：直接在命令行调用工具，支持参数自动解析
+- 🔄 **守护进程**：保持与 MCP 服务的长连接，显著提高性能
+- 📊 **表格输出**：清晰的服务器状态和工具列表展示
+- 🔍 **工具筛选**：按关键词筛选工具，支持简洁模式
+- 🚨 **详细日志**：可选的详细日志模式，方便调试
+- ✅ **自动化测试**：完整的测试套件，确保代码质量
+
+## 安装
+
+```bash
+npm install -g @maplezzk/mcps
+```
+
+## 快速开始
+
+```bash
+# 1. 添加一个服务
+mcps add fetch --command uvx --args mcp-server-fetch
+
+# 2. 启动守护进程
+mcps start
+
+# 3. 查看服务状态
+mcps status
+
+# 4. 查看可用工具
+mcps tools fetch
+
+# 5. 调用工具
+mcps call fetch fetch url="https://example.com"
+```
+
+## 使用指南
+
+### 1. 守护进程 (Daemon Mode)
+
+mcps 支持守护进程模式，可以保持与 MCP 服务的长连接，显著提高频繁调用的性能。
+
+**启动守护进程：**
+```bash
+# 普通模式
+mcps start
+
+# 详细模式（显示每个服务器的连接过程和禁用的服务器）
+mcps start --verbose
+```
+
+输出示例：
+```
+Starting daemon in background...
+[Daemon] Connecting to 7 server(s)...
+[Daemon] - chrome-devtools... Connected ✓
+[Daemon] - fetch... Connected ✓
+[Daemon] - gitlab-mr-creator... Connected ✓
+[Daemon] Connected: 7/7
+Daemon started successfully on port 4100.
+```
+
+**重启连接：**
+```bash
+# 重置所有连接
+mcps restart
+
+# 仅重置特定服务的连接
+mcps restart my-server
+```
+
+**停止守护进程：**
+```bash
+mcps stop
+```
+
+**查看守护进程状态：**
+```bash
+mcps status
+```
+
+输出示例：
+```
+Daemon is running (v1.0.29)
+
+Active Connections:
+NAME                STATUS      TOOLS
+─────────────────   ──────────  ──────
+chrome-devtools     Connected   26
+fetch               Connected   1
+gitlab-mr-creator   Connected   30
+Total: 3 connection(s)
+```
+
+### 2. 服务管理 (Server Management)
+
+**查看所有服务（配置信息）：**
+```bash
+mcps ls
+```
+
+输出示例：
+```
+NAME                TYPE    ENABLED  COMMAND/URL
+─────────────────   ──────  ───────  ─────────────
+chrome-devtools     stdio   ✓        npx -y chrome-devtools-mcp ...
+fetch               stdio   ✓        uvx mcp-server-fetch
+my-server           stdio   ✗        npx my-server
+Total: 3 server(s)
+```
+
+**添加 Stdio 服务：**
+```bash
+# 添加本地 Node.js 服务
+mcps add my-server --command node --args ./build/index.js
+
+# 使用 npx/uvx 添加服务
+mcps add fetch --command uvx --args mcp-server-fetch
+
+# 添加带环境变量的服务
+mcps add my-db --command npx --args @modelcontextprotocol/server-postgres --env POSTGRES_CONNECTION_STRING="${DATABASE_URL}"
+```
+
+**添加 SSE 服务：**
+```bash
+mcps add remote-server --type sse --url http://localhost:8000/sse
+```
+
+**添加 Streamable HTTP 服务：**
+```bash
+mcps add my-http-server --type http --url http://localhost:8000/mcp
+```
+
+**移除服务：**
+```bash
+mcps rm my-server
+```
+
+**更新服务：**
+```bash
+# 刷新所有服务连接
+mcps update
+
+# 更新特定服务的命令
+mcps update my-server --command new-command
+
+# 更新特定服务的参数
+mcps update my-server --args arg1 arg2
+
+# 同时更新命令和参数
+mcps update my-server --command node --args ./new-build/index.js
+```
+
+### 3. 工具交互 (Tool Interaction)
+
+**查看服务下的可用工具：**
+```bash
+# 详细模式（显示所有信息）
+mcps tools chrome-devtools
+
+# 简洁模式（只显示工具名称）
+mcps tools chrome-devtools --simple
+
+# 筛选工具（按关键词）
+mcps tools chrome-devtools --tool screenshot
+
+# 多个关键词 + 简洁模式
+mcps tools gitlab-mr-creator --tool file --tool wiki --simple
+```
+
+详细模式输出示例：
+```
+Available Tools for chrome-devtools:
+
+- take_screenshot
+  Take a screenshot of the page or element.
+  Arguments:
+    format*: string (Type of format to save the screenshot as...)
+    quality: number (Compression quality from 0-100)
+    uid: string (The uid of an element to screenshot...)
+    ...
+
+- click
+  Clicks on the provided element
+  Arguments:
+    uid*: string (The uid of an element...)
+    ...
+```
+
+简洁模式输出示例：
+```
+$ mcps tools chrome-devtools -s
+click
+close_page
+drag
+emulate
+evaluate_script
+fill
+...
+take_screenshot
+take_snapshot
+
+Total: 26 tool(s)
+```
+
+**调用工具：**
+
+语法：
+```bash
+mcps call <server_name> <tool_name> [arguments...]
+```
+
+- `<server_name>`: 已配置的 MCP 服务名称
+- `<tool_name>`: 要调用的工具名称
+- `[arguments...]`: 以 `key=value` 形式传递的参数。CLI 会尝试自动将值解析为 JSON（数字、布尔值、对象）。
+
+示例：
+```bash
+# 简单的字符串参数
+mcps call fetch fetch url="https://example.com"
+
+# 带多个参数
+mcps call fetch fetch url="https://example.com" max_length=5000
+
+# JSON 对象参数
+mcps call my-server createUser user='{"name": "Alice", "age": 30}'
+
+# 布尔值/数字参数
+mcps call chrome-devtools take_screenshot fullPage=true quality=90
+
+# 混合参数
+mcps call my-server config debug=true timeout=5000 options='{"retries": 3}'
+```
+
+## 配置文件
+
+默认情况下，配置文件存储在：
+`~/.mcps/mcp.json`
+
+您可以通过设置 `MCPS_CONFIG_DIR` 环境变量来更改存储位置。
+
+配置文件示例：
+```json
+{
+  "servers": [
+    {
+      "name": "fetch",
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    },
+    {
+      "name": "my-server",
+      "type": "stdio",
+      "command": "node",
+      "args": ["./build/index.js"],
+      "env": {
+        "API_KEY": "${API_KEY}"
+      },
+      "disabled": false
+    }
+  ]
+}
+```
+
+## 环境变量
+
+- `MCPS_CONFIG_DIR`: 配置文件目录（默认：`~/.mcps`）
+- `MCPS_PORT`: Daemon 端口（默认：`4100`）
+- `MCPS_VERBOSE`: 详细日志模式（默认：`false`）
+
+## 命令参考
+
+### 服务管理
+- `mcps ls` - 列出所有服务
+- `mcps add <name>` - 添加新服务
+- `mcps rm <name>` - 移除服务
+- `mcps update [name]` - 更新服务配置
+
+### 守护进程
+- `mcps start [-v]` - 启动守护进程（`-v` 显示详细日志）
+- `mcps stop` - 停止守护进程
+- `mcps status` - 查看守护进程状态
+- `mcps restart [server]` - 重启守护进程或特定服务
+
+### 工具交互
+- `mcps tools <server> [-s] [-t <name>...]` - 查看可用工具
+  - `-s, --simple`: 只显示工具名称
+  - `-t, --tool`: 按名称筛选工具（可重复使用）
+- `mcps call <server> <tool> [args...]` - 调用工具
+
+## 性能优化
+
+mcps 通过以下方式优化性能：
+
+1. **守护进程模式**：保持长连接，避免重复启动开销
+2. **工具缓存**：连接时缓存工具数量，避免重复查询
+3. **异步连接**：并行初始化多个服务器连接
+
+典型性能：
+- 启动守护进程：10-15 秒（首次，取决于服务数量）
+- 查看状态：~200ms
+- 调用工具：~50-100ms
+
+
+## 开发工作流
+
+欢迎贡献代码！
+
+**快速开始：**
+```bash
+# 克隆项目
+git clone https://github.com/maplezzk/mcps.git
+cd mcps
+npm install
+
+# 开发模式
+npm run dev -- <command>
+
+# 构建和测试
+npm run build
+npm test
+```
+
+**重要规范：**
+- 不要直接在 `main` 分支提交代码
+- 使用 `npm version` 更新版本号（禁止手动修改）
+- 新功能必须包含单元测试
+
+📖 **完整开发文档**：[DEVELOPMENT.md](./DEVELOPMENT.md)
+
+
+## 常见问题
+
+**Q: 如何查看所有服务器的运行状态？**
+```bash
+mcps status  # 查看活跃连接
+mcps ls      # 查看所有配置（包括禁用的）
+```
+
+**Q: 某个服务连接失败了怎么办？**
+```bash
+# 查看详细日志
+mcps start --verbose
+
+# 重启该服务
+mcps restart my-server
+```
+
+**Q: 如何临时禁用某个服务？**
+在配置文件中设置 `"disabled": true`，或使用 `mcps update` 修改配置。
+
+**Q: 工具太多怎么快速找到？**
+```bash
+# 筛选工具名称
+mcps tools my-server --tool keyword
+
+# 只显示名称
+mcps tools my-server --simple
+```
+
+## 许可证
+
+ISC

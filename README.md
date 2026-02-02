@@ -1,61 +1,60 @@
 # mcps - MCP CLI Manager
 
-[English](./README_EN.md) | [简体中文](./README.md)
+[English](./README.md) | [简体中文](./README.zh.md)
 
-一个用于管理和交互 [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) 服务的强大命令行工具。
+A powerful command-line interface for managing and interacting with [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) servers.
 
-## 功能特性
+## Features
 
-- 🔌 **服务管理**：轻松添加、移除、查看和更新 MCP 服务（支持 Stdio、SSE 和 HTTP 模式）
-- 🛠️ **工具发现**：查看已配置服务中所有可用的工具
-- 🚀 **工具执行**：直接在命令行调用工具，支持参数自动解析
-- 🔄 **守护进程**：保持与 MCP 服务的长连接，显著提高性能
-- 📊 **表格输出**：清晰的服务器状态和工具列表展示
-- 🔍 **工具筛选**：按关键词筛选工具，支持简洁模式
-- 🚨 **详细日志**：可选的详细日志模式，方便调试
-- ✅ **自动化测试**：完整的测试套件，确保代码质量
+- 🔌 **Server Management**: Easily add, remove, list, and update MCP servers (Stdio, SSE, and HTTP modes)
+- 🛠️ **Tool Discovery**: List available tools from any configured server
+- 🚀 **Tool Execution**: Call tools directly from the CLI with automatic argument parsing
+- 🔄 **Daemon Mode**: Maintain persistent connections to MCP servers for better performance
+- 📊 **Table Output**: Clear server status and tool listings
+- 🔍 **Tool Filtering**: Filter tools by keywords with simple mode
+- 🚨 **Verbose Logging**: Optional detailed logging for debugging
 
-## 安装
+## Installation
 
 ```bash
 npm install -g @maplezzk/mcps
 ```
 
-## 快速开始
+## Quick Start
 
 ```bash
-# 1. 添加一个服务
+# 1. Add a server
 mcps add fetch --command uvx --args mcp-server-fetch
 
-# 2. 启动守护进程
+# 2. Start the daemon
 mcps start
 
-# 3. 查看服务状态
+# 3. Check server status
 mcps status
 
-# 4. 查看可用工具
+# 4. List available tools
 mcps tools fetch
 
-# 5. 调用工具
+# 5. Call a tool
 mcps call fetch fetch url="https://example.com"
 ```
 
-## 使用指南
+## Usage Guide
 
-### 1. 守护进程 (Daemon Mode)
+### 1. Daemon Mode
 
-mcps 支持守护进程模式，可以保持与 MCP 服务的长连接，显著提高频繁调用的性能。
+mcps supports a daemon mode that maintains persistent connections to MCP servers, significantly improving performance for frequent calls.
 
-**启动守护进程：**
+**Start Daemon:**
 ```bash
-# 普通模式
+# Normal mode
 mcps start
 
-# 详细模式（显示每个服务器的连接过程和禁用的服务器）
+# Verbose mode (show connection process for each server and disabled servers)
 mcps start --verbose
 ```
 
-输出示例：
+Output example:
 ```
 Starting daemon in background...
 [Daemon] Connecting to 7 server(s)...
@@ -66,26 +65,26 @@ Starting daemon in background...
 Daemon started successfully on port 4100.
 ```
 
-**重启连接：**
+**Restart Connections:**
 ```bash
-# 重置所有连接
+# Reset all connections
 mcps restart
 
-# 仅重置特定服务的连接
+# Reset connection for a specific server
 mcps restart my-server
 ```
 
-**停止守护进程：**
+**Stop Daemon:**
 ```bash
 mcps stop
 ```
 
-**查看守护进程状态：**
+**Check Daemon Status:**
 ```bash
 mcps status
 ```
 
-输出示例：
+Output example:
 ```
 Daemon is running (v1.0.29)
 
@@ -98,14 +97,14 @@ gitlab-mr-creator   Connected   30
 Total: 3 connection(s)
 ```
 
-### 2. 服务管理 (Server Management)
+### 2. Server Management
 
-**查看所有服务（配置信息）：**
+**List all servers (configuration):**
 ```bash
 mcps ls
 ```
 
-输出示例：
+Output example:
 ```
 NAME                TYPE    ENABLED  COMMAND/URL
 ─────────────────   ──────  ───────  ─────────────
@@ -115,66 +114,66 @@ my-server           stdio   ✗        npx my-server
 Total: 3 server(s)
 ```
 
-**添加 Stdio 服务：**
+**Add Stdio Server:**
 ```bash
-# 添加本地 Node.js 服务
+# Add local Node.js server
 mcps add my-server --command node --args ./build/index.js
 
-# 使用 npx/uvx 添加服务
+# Use npx/uvx to add server
 mcps add fetch --command uvx --args mcp-server-fetch
 
-# 添加带环境变量的服务
+# Add server with environment variables
 mcps add my-db --command npx --args @modelcontextprotocol/server-postgres --env POSTGRES_CONNECTION_STRING="${DATABASE_URL}"
 ```
 
-**添加 SSE 服务：**
+**Add SSE Server:**
 ```bash
 mcps add remote-server --type sse --url http://localhost:8000/sse
 ```
 
-**添加 Streamable HTTP 服务：**
+**Add Streamable HTTP Server:**
 ```bash
 mcps add my-http-server --type http --url http://localhost:8000/mcp
 ```
 
-**移除服务：**
+**Remove Server:**
 ```bash
 mcps rm my-server
 ```
 
-**更新服务：**
+**Update Server:**
 ```bash
-# 刷新所有服务连接
+# Refresh all server connections
 mcps update
 
-# 更新特定服务的命令
+# Update specific server command
 mcps update my-server --command new-command
 
-# 更新特定服务的参数
+# Update specific server arguments
 mcps update my-server --args arg1 arg2
 
-# 同时更新命令和参数
+# Update both command and arguments
 mcps update my-server --command node --args ./new-build/index.js
 ```
 
-### 3. 工具交互 (Tool Interaction)
+### 3. Tool Interaction
 
-**查看服务下的可用工具：**
+**List available tools on a server:**
 ```bash
-# 详细模式（显示所有信息）
+# Detailed mode (show all information)
 mcps tools chrome-devtools
 
-# 简洁模式（只显示工具名称）
+# Simple mode (show only tool names)
 mcps tools chrome-devtools --simple
 
-# 筛选工具（按关键词）
+# Filter tools by keyword
 mcps tools chrome-devtools --tool screenshot
 
-# 多个关键词 + 简洁模式
+# Multiple keywords + simple mode
 mcps tools gitlab-mr-creator --tool file --tool wiki --simple
 ```
 
-详细模式输出示例：
+Detailed mode output example:
 ```
 Available Tools for chrome-devtools:
 
@@ -193,7 +192,7 @@ Available Tools for chrome-devtools:
     ...
 ```
 
-简洁模式输出示例：
+Simple mode output example:
 ```
 $ mcps tools chrome-devtools -s
 click
@@ -209,43 +208,43 @@ take_snapshot
 Total: 26 tool(s)
 ```
 
-**调用工具：**
+**Call Tools:**
 
-语法：
+Syntax:
 ```bash
 mcps call <server_name> <tool_name> [arguments...]
 ```
 
-- `<server_name>`: 已配置的 MCP 服务名称
-- `<tool_name>`: 要调用的工具名称
-- `[arguments...]`: 以 `key=value` 形式传递的参数。CLI 会尝试自动将值解析为 JSON（数字、布尔值、对象）。
+- `<server_name>`: Name of the configured MCP server
+- `<tool_name>`: Name of the tool to call
+- `[arguments...]`: Arguments passed as `key=value` pairs. The CLI attempts to automatically parse values as JSON (numbers, booleans, objects).
 
-示例：
+Examples:
 ```bash
-# 简单的字符串参数
+# Simple string argument
 mcps call fetch fetch url="https://example.com"
 
-# 带多个参数
+# Multiple arguments
 mcps call fetch fetch url="https://example.com" max_length=5000
 
-# JSON 对象参数
+# JSON object argument
 mcps call my-server createUser user='{"name": "Alice", "age": 30}'
 
-# 布尔值/数字参数
+# Boolean/number arguments
 mcps call chrome-devtools take_screenshot fullPage=true quality=90
 
-# 混合参数
+# Mixed arguments
 mcps call my-server config debug=true timeout=5000 options='{"retries": 3}'
 ```
 
-## 配置文件
+## Configuration File
 
-默认情况下，配置文件存储在：
+By default, the configuration file is stored at:
 `~/.mcps/mcp.json`
 
-您可以通过设置 `MCPS_CONFIG_DIR` 环境变量来更改存储位置。
+You can change the storage location by setting the `MCPS_CONFIG_DIR` environment variable.
 
-配置文件示例：
+Configuration file example:
 ```json
 {
   "servers": [
@@ -269,102 +268,74 @@ mcps call my-server config debug=true timeout=5000 options='{"retries": 3}'
 }
 ```
 
-## 环境变量
+## Environment Variables
 
-- `MCPS_CONFIG_DIR`: 配置文件目录（默认：`~/.mcps`）
-- `MCPS_PORT`: Daemon 端口（默认：`4100`）
-- `MCPS_VERBOSE`: 详细日志模式（默认：`false`）
+- `MCPS_CONFIG_DIR`: Configuration file directory (default: `~/.mcps`)
+- `MCPS_PORT`: Daemon port (default: `4100`)
+- `MCPS_VERBOSE`: Verbose logging mode (default: `false`)
 
-## 命令参考
+## Command Reference
 
-### 服务管理
-- `mcps ls` - 列出所有服务
-- `mcps add <name>` - 添加新服务
-- `mcps rm <name>` - 移除服务
-- `mcps update [name]` - 更新服务配置
+### Server Management
+- `mcps ls` - List all servers
+- `mcps add <name>` - Add a new server
+- `mcps rm <name>` - Remove a server
+- `mcps update [name]` - Update server configuration
 
-### 守护进程
-- `mcps start [-v]` - 启动守护进程（`-v` 显示详细日志）
-- `mcps stop` - 停止守护进程
-- `mcps status` - 查看守护进程状态
-- `mcps restart [server]` - 重启守护进程或特定服务
+### Daemon
+- `mcps start [-v]` - Start daemon (`-v` for detailed logging)
+- `mcps stop` - Stop daemon
+- `mcps status` - Check daemon status
+- `mcps restart [server]` - Restart daemon or specific server
 
-### 工具交互
-- `mcps tools <server> [-s] [-t <name>...]` - 查看可用工具
-  - `-s, --simple`: 只显示工具名称
-  - `-t, --tool`: 按名称筛选工具（可重复使用）
-- `mcps call <server> <tool> [args...]` - 调用工具
+### Tool Interaction
+- `mcps tools <server> [-s] [-t <name>...]` - List available tools
+  - `-s, --simple`: Show only tool names
+  - `-t, --tool`: Filter tools by name (can be used multiple times)
+- `mcps call <server> <tool> [args...]` - Call a tool
 
-## 性能优化
+## Performance
 
-mcps 通过以下方式优化性能：
+mcps optimizes performance through:
 
-1. **守护进程模式**：保持长连接，避免重复启动开销
-2. **工具缓存**：连接时缓存工具数量，避免重复查询
-3. **异步连接**：并行初始化多个服务器连接
+1. **Daemon Mode**: Maintains persistent connections, avoiding repeated startup overhead
+2. **Tool Caching**: Caches tool counts during connection, avoiding repeated queries
+3. **Async Connections**: Parallel initialization of multiple server connections
 
-典型性能：
-- 启动守护进程：10-15 秒（首次，取决于服务数量）
-- 查看状态：~200ms
-- 调用工具：~50-100ms
+Typical performance:
+- Start daemon: 10-15 seconds (first time, depends on server count)
+- Check status: ~200ms
+- Call tool: ~50-100ms
 
+## FAQ
 
-## 开发工作流
-
-欢迎贡献代码！
-
-**快速开始：**
+**Q: How to check the status of all servers?**
 ```bash
-# 克隆项目
-git clone https://github.com/maplezzk/mcps.git
-cd mcps
-npm install
-
-# 开发模式
-npm run dev -- <command>
-
-# 构建和测试
-npm run build
-npm test
+mcps status  # Check active connections
+mcps ls      # Check all configurations (including disabled)
 ```
 
-**重要规范：**
-- 不要直接在 `main` 分支提交代码
-- 使用 `npm version` 更新版本号（禁止手动修改）
-- 新功能必须包含单元测试
-
-📖 **完整开发文档**：[DEVELOPMENT.md](./DEVELOPMENT.md)
-
-
-## 常见问题
-
-**Q: 如何查看所有服务器的运行状态？**
+**Q: What if a server fails to connect?**
 ```bash
-mcps status  # 查看活跃连接
-mcps ls      # 查看所有配置（包括禁用的）
-```
-
-**Q: 某个服务连接失败了怎么办？**
-```bash
-# 查看详细日志
+# View detailed logs
 mcps start --verbose
 
-# 重启该服务
+# Restart that server
 mcps restart my-server
 ```
 
-**Q: 如何临时禁用某个服务？**
-在配置文件中设置 `"disabled": true`，或使用 `mcps update` 修改配置。
+**Q: How to temporarily disable a server?**
+Set `"disabled": true` in the configuration file, or use `mcps update` to modify the configuration.
 
-**Q: 工具太多怎么快速找到？**
+**Q: How to quickly find tools when there are many?**
 ```bash
-# 筛选工具名称
+# Filter tools by keyword
 mcps tools my-server --tool keyword
 
-# 只显示名称
+# Show only names
 mcps tools my-server --simple
 ```
 
-## 许可证
+## License
 
 ISC

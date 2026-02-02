@@ -1,6 +1,6 @@
 {
   "name": "@maplezzk/mcps",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "A CLI to manage and use MCP servers",
   "publishConfig": {
     "access": "public"
