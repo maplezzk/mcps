@@ -477,14 +477,24 @@ git push origin v1.x.x  # 如果有版本标签
 gh pr create --title "feat: 功能标题" --body "PR 描述"
 ```
 
-**5. PR 检查清单：**
-- ✅ 从 `main` 分支创建的功能分支（非 main 分支直接提交）
-- ✅ CI 测试通过（GitHub Actions）
-- ✅ 代码通过所有测试
-- ✅ 新功能有对应的测试
+**5. PR 检查清单（创建 PR 前必须检查）：**
+- ✅ 从最新 `main` 分支创建的功能分支
+- ✅ 代码已提交到功能分支（非 main 分支）
+- ✅ **新功能包含对应的单元测试**
+- ✅ **版本号已使用 `npm version` 更新（如需要发布）**
+- ✅ `npm run build` 构建成功
+- ✅ `npm test` 所有测试通过
 - ✅ 提交信息符合规范
 - ✅ PR 描述清晰说明了变更内容
-- ✅ 版本号已使用 `npm version` 正确更新（如需要）
+
+**⚠️ 常见错误（真实案例）：**
+
+| 错误 | 后果 | 正确做法 |
+|------|------|----------|
+| 直接在 `main` 分支开发 | 污染主分支，无法创建干净的 PR | 始终创建 `feature/` 或 `fix/` 分支 |
+| PR 创建后才更新版本号 | 版本提交不在 PR 中，合并后版本不一致 | **提 PR 前**执行 `npm version` |
+| PR 合并后继续往旧分支提交 | 提交无法进入新的 PR，需要 cherry-pick | PR 合并后，从最新的 `main` 创建新分支 |
+| 新功能不写测试 | 代码质量无法保证，容易回归 | 功能代码和测试代码一起提交 |
 
 **6. 解决冲突（如有）：**
 ```bash
@@ -498,7 +508,46 @@ git commit -m "chore: merge main and resolve conflicts"
 git push origin feature/your-feature-name
 ```
 
-**7. 常见错误修复：**
+**7. 功能开发完整流程（正确示例）：**
+
+```bash
+# 1. 切换到 main 并更新
+ git checkout main
+git pull origin main
+
+# 2. 创建功能分支
+git checkout -b feature/my-feature
+
+# 3. 开发功能并编写测试...
+# - 修改代码
+# - 编写单元测试
+# - 确保测试覆盖新功能
+
+# 4. 构建和测试
+npm run build
+npm test
+
+# 5. 提交代码（包括功能代码和测试代码）
+git add .
+git commit -m "feat: 新增 xxx 功能
+
+- 功能描述...
+- 添加单元测试
+
+Co-Authored-By: xxx"
+
+# 6. 更新版本号（如需要发布）
+npm version minor  # 或 patch / major
+
+# 7. 推送分支和标签
+git push origin feature/my-feature
+git push origin v1.x.x  # 版本标签
+
+# 8. 创建 PR
+gh pr create --title "feat: xxx" --body "..."
+```
+
+**8. 常见错误修复：**
 
 如果误提交到 `main` 分支：
 ```bash
@@ -517,6 +566,30 @@ git cherry-pick abc1234  # 使用刚才记录的 hash
 
 # 4. 推送功能分支
 git push origin feature/your-feature-name
+```
+
+如果 PR 已合并还继续往旧分支提交：
+```bash
+# 1. 保存新提交的哈希值（在旧分支上）
+git log --oneline -1
+
+# 2. 切换到最新的 main
+git checkout main
+git pull origin main
+
+# 3. 创建新分支
+git checkout -b feature/new-feature
+
+# 4. 将提交移到新分支
+git cherry-pick <commit-hash>
+
+# 5. 更新版本号（如需要）
+npm version minor
+
+# 6. 推送并创建新 PR
+git push origin feature/new-feature
+git push origin v1.x.x
+gh pr create --title "feat: xxx" --body "..."
 ```
 
 ### 发布流程
