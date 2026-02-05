@@ -160,11 +160,14 @@ mcps update my-server --command node --args ./new-build/index.js
 
 **List available tools on a server:**
 ```bash
-# Detailed mode (show all information)
+# Detailed mode (show all information including nested object properties)
 mcps tools chrome-devtools
 
 # Simple mode (show only tool names)
 mcps tools chrome-devtools --simple
+
+# JSON output (raw tool schema)
+mcps tools chrome-devtools --json
 
 # Filter tools by keyword
 mcps tools chrome-devtools --tool screenshot
@@ -173,23 +176,21 @@ mcps tools chrome-devtools --tool screenshot
 mcps tools gitlab-mr-creator --tool file --tool wiki --simple
 ```
 
-Detailed mode output example:
+Detailed mode output example (with nested objects):
 ```
 Available Tools for chrome-devtools:
 
 - take_screenshot
   Take a screenshot of the page or element.
   Arguments:
-    format*: string (Type of format to save the screenshot as...)
+    format*: string ["jpeg", "png", "webp"] (Type of format to save the screenshot as...)
     quality: number (Compression quality from 0-100)
     uid: string (The uid of an element to screenshot...)
-    ...
 
 - click
   Clicks on the provided element
   Arguments:
     uid*: string (The uid of an element...)
-    ...
 ```
 
 Simple mode output example:
@@ -324,8 +325,9 @@ Configuration file example:
 - `mcps restart [server]` - Restart daemon or specific server
 
 ### Tool Interaction
-- `mcps tools <server> [-s] [-t <name>...]` - List available tools
+- `mcps tools <server> [-s] [-j] [-t <name>...]` - List available tools
   - `-s, --simple`: Show only tool names
+  - `-j, --json`: Output raw JSON (for debugging)
   - `-t, --tool`: Filter tools by name (can be used multiple times)
 - `mcps call <server> <tool> [args...]` - Call a tool
 

@@ -161,11 +161,14 @@ mcps update my-server --command node --args ./new-build/index.js
 
 **查看服务下的可用工具：**
 ```bash
-# 详细模式（显示所有信息）
+# 详细模式（显示所有信息，包括嵌套对象属性）
 mcps tools chrome-devtools
 
 # 简洁模式（只显示工具名称）
 mcps tools chrome-devtools --simple
+
+# JSON 输出（原始工具 schema）
+mcps tools chrome-devtools --json
 
 # 筛选工具（按关键词）
 mcps tools chrome-devtools --tool screenshot
@@ -174,23 +177,21 @@ mcps tools chrome-devtools --tool screenshot
 mcps tools gitlab-mr-creator --tool file --tool wiki --simple
 ```
 
-详细模式输出示例：
+详细模式输出示例（包含嵌套对象）：
 ```
 Available Tools for chrome-devtools:
 
 - take_screenshot
   Take a screenshot of the page or element.
   Arguments:
-    format*: string (Type of format to save the screenshot as...)
+    format*: string ["jpeg", "png", "webp"] (Type of format to save the screenshot as...)
     quality: number (Compression quality from 0-100)
     uid: string (The uid of an element to screenshot...)
-    ...
 
 - click
   Clicks on the provided element
   Arguments:
     uid*: string (The uid of an element...)
-    ...
 ```
 
 简洁模式输出示例：
@@ -325,8 +326,9 @@ mcps call my-server createUser --json params.json
 - `mcps restart [server]` - 重启守护进程或特定服务
 
 ### 工具交互
-- `mcps tools <server> [-s] [-t <name>...]` - 查看可用工具
+- `mcps tools <server> [-s] [-j] [-t <name>...]` - 查看可用工具
   - `-s, --simple`: 只显示工具名称
+  - `-j, --json`: 输出原始 JSON（用于调试）
   - `-t, --tool`: 按名称筛选工具（可重复使用）
 - `mcps call <server> <tool> [args...]` - 调用工具
 

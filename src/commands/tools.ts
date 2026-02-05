@@ -3,6 +3,31 @@ import chalk from 'chalk';
 import { configManager } from '../core/config.js';
 import { DaemonClient } from '../core/daemon-client.js';
 
+function printProperty(key: string, value: any, required: boolean, indent: number) {
+    const indentStr = '  '.repeat(indent);
+    const requiredMark = required ? chalk.red('*') : '';
+    const desc = value.description ? ` (${value.description})` : '';
+
+    if (value.type === 'object' && value.properties) {
+        console.log(`${indentStr}${key}${requiredMark}: object${desc}`);
+        const nestedRequired = value.required || [];
+        Object.entries(value.properties).forEach(([nestedKey, nestedValue]: [string, any]) => {
+            printProperty(nestedKey, nestedValue as any, nestedRequired.includes(nestedKey), indent + 1);
+        });
+    } else {
+        let typeInfo = value.type || 'any';
+        if (value.type === 'array' && value.items) {
+            const itemType = value.items.type || 'any';
+            typeInfo = `array of ${itemType}`;
+        }
+        if (value.enum) {
+            const enumValues = value.enum.map((v: any) => typeof v === 'string' ? `"${v}"` : String(v)).join(', ');
+            typeInfo += ` [${enumValues}]`;
+        }
+        console.log(`${indentStr}${key}${requiredMark}: ${typeInfo}${desc}`);
+    }
+}
+
 function printTools(serverName: string, tools: any) {
     console.log(chalk.bold(`\nAvailable Tools for ${serverName}:`));
     if (!tools || tools.length === 0) {
@@ -16,9 +41,9 @@ function printTools(serverName: string, tools: any) {
             console.log(chalk.gray('  Arguments:'));
             const schema = tool.inputSchema as any;
             if (schema.properties) {
+                const required = schema.required || [];
                 Object.entries(schema.properties).forEach(([key, value]: [string, any]) => {
-                    const required = schema.required?.includes(key) ? chalk.red('*') : '';
-                    console.log(`    ${key}${required}: ${value.type || 'any'} ${value.description ? `(${value.description})` : ''}`);
+                    printProperty(key, value, required.includes(key), 2);
                 });
             } else {
                 console.log('    None');
@@ -31,6 +56,7 @@ export const registerToolsCommand = (program: Command) => {
   program.command('tools <server>')
     .description('List available tools on a server')
     .option('-s, --simple', 'Show only tool names')
+    .option('-j, --json', 'Output raw JSON')
     .option('-t, --tool <name...>', 'Filter tools by name(s)')
     .action(async (serverName, options) => {
       // Check if server exists in config first
@@ -59,6 +85,12 @@ export const registerToolsCommand = (program: Command) => {
 
         if (!tools || tools.length === 0) {
           console.log(chalk.yellow('No tools found.'));
+          return;
+        }
+
+        if (options.json) {
+          // Raw JSON output
+          console.log(JSON.stringify(tools, null, 2));
           return;
         }
 
