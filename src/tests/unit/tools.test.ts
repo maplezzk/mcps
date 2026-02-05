@@ -1,8 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { captureConsole } from '../helpers';
+import { describe, it, expect } from 'vitest';
 
 describe('tools command', () => {
-  describe('printProperty function behavior', () => {
+  describe('tool schema structure validation', () => {
     // 由于 printProperty 是内部函数，我们通过实际输出来测试其行为
     // 这些测试确保嵌套对象、数组和枚举值能正确显示
 
@@ -146,7 +145,7 @@ describe('tools command', () => {
 
   describe('edge cases', () => {
     it('should handle properties without type', () => {
-      const mockSchema = {
+      const mockSchema: any = {
         type: 'object',
         properties: {
           untyped: {
@@ -174,7 +173,7 @@ describe('tools command', () => {
     });
 
     it('should handle arrays without items specification', () => {
-      const mockSchema = {
+      const mockSchema: any = {
         type: 'object',
         properties: {
           arrayWithoutItems: {
