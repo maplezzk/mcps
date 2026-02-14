@@ -174,10 +174,11 @@ git commit -m "feat: 你的功能描述"
 # git cherry-pick <commit-hash>  # 将提交移到新分支
 ```
 
-### 3. 更新版本号（如需要）
+### 3. 更新版本号（必须）
 
 ```bash
 # ⚠️ 必须使用 npm version 命令，禁止手动修改 package.json
+# ⚠️ 每次修改都必须更新版本号，无论功能大小！
 
 # Patch 版本（bug 修复）
 npm version patch
@@ -210,7 +211,7 @@ gh pr create --title "feat: 功能标题" --body "PR 描述"
 - ✅ 从最新 `main` 分支创建的功能分支
 - ✅ 代码已提交到功能分支（非 main 分支）
 - ✅ **新功能包含对应的单元测试**
-- ✅ **版本号已使用 `npm version` 更新（如需要发布）**
+- ✅ **版本号已使用 `npm version` 更新（每次修改都必须更新！）**
 - ✅ **`npm run build` TypeScript 编译成功**
 - ✅ `npm test` 所有测试通过
 - ✅ 提交信息符合规范
@@ -268,7 +269,7 @@ git commit -m "feat: 新增 xxx 功能
 
 Co-Authored-By: xxx"
 
-# 6. 更新版本号（如需要发布）
+# 6. ⚠️ 必须更新版本号（每次修改都要更新！）
 npm version minor  # 或 patch / major
 
 # 7. 推送分支和标签
