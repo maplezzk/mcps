@@ -229,15 +229,21 @@ export class McpClientService {
     // 记录工具调用请求
     log(`[Tool Request] Server: ${this.serverName}, Tool: ${toolName}, Args: ${JSON.stringify(args)}`);
 
-    const result = await this.client.callTool({
-      name: toolName,
-      arguments: args,
-    });
+    try {
+      const result = await this.client.callTool({
+        name: toolName,
+        arguments: args,
+      });
 
-    // 记录工具调用响应
-    log(`[Tool Response] Server: ${this.serverName}, Tool: ${toolName}, Result: ${JSON.stringify(result)}`);
+      // 记录工具调用响应
+      log(`[Tool Response] Server: ${this.serverName}, Tool: ${toolName}, Result: ${JSON.stringify(result)}`);
 
-    return result;
+      return result;
+    } catch (error: any) {
+      // 记录工具调用错误
+      log(`[Tool Error] Server: ${this.serverName}, Tool: ${toolName}, Error: ${error.message}`);
+      throw error;
+    }
   }
 
   close() {
