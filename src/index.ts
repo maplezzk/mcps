@@ -4,6 +4,7 @@ import { registerServerCommands } from './commands/server.js';
 import { registerToolsCommand } from './commands/tools.js';
 import { registerCallCommand } from './commands/call.js';
 import { registerDaemonCommand } from './commands/daemon.js';
+import { registerProtocolCommands } from './commands/protocol.js';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
@@ -20,5 +21,6 @@ registerServerCommands(program);
 registerToolsCommand(program);
 registerCallCommand(program);
 registerDaemonCommand(program);
+registerProtocolCommands(program);
 
-program.parse(process.argv);
+await program.parseAsync(process.argv);

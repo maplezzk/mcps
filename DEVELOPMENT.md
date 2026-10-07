@@ -30,14 +30,14 @@ cd mcps
 
 **安装依赖：**
 ```bash
-npm install
+npm ci
 ```
 
 ---
 
 ## 本地开发
 
-**开发模式（使用 ts-node 直接运行）：**
+**开发模式（使用 ts-node ESM loader，子进程继承 loader）：**
 ```bash
 npm run dev -- <command>
 # 例如
@@ -93,6 +93,10 @@ npm run test:coverage
 - 新功能需要添加相应的测试
 - 保持测试覆盖率在合理水平
 - **TypeScript 编译必须无错误**
+
+测试包含配置文件保护、真实 CLI 参数解析、daemon 路由、连接池并发与关闭，以及真实 SDK 服务的 stdio、Streamable HTTP、旧 SSE、新旧协议协商、OAuth 和多轮输入请求。测试启动前会编译 CLI，子进程测试使用独立配置目录和随机端口，结束时关闭自己创建的进程。
+
+协议支持范围和可选能力见 [MCP_SUPPORT.md](docs/MCP_SUPPORT.md)。不要用测试数量代替行为验证，也不要给客户端宣告尚未实现的 sampling、roots 或扩展能力。
 
 ---
 

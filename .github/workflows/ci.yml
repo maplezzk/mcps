@@ -9,6 +9,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22', '24']
 
     steps:
       - name: Checkout code
@@ -17,14 +21,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node }}
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test
+      - name: Build and run unit and protocol integration tests
+        run: npm run check
 
-      - name: Build project
-        run: npm run build
+      - name: Check coverage
+        if: matrix.node == '24'
+        run: npm run test:coverage

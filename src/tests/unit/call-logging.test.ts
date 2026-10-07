@@ -1,73 +1,51 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { Client } from '@modelcontextprotocol/client';
+import { McpClientService } from '../../core/client.js';
+import { printResult } from '../../commands/call.js';
 
-describe('tool call logging format', () => {
-  describe('log message formatting', () => {
-    it('should format tool request message correctly', () => {
-      const serverName = 'test-server';
-      const toolName = 'test_tool';
-      const args = { arg1: 'value1', arg2: 123 };
-
-      const message = `[Tool Request] Server: ${serverName}, Tool: ${toolName}, Args: ${JSON.stringify(args)}`;
-
-      expect(message).toContain('[Tool Request]');
-      expect(message).toContain(`Server: ${serverName}`);
-      expect(message).toContain(`Tool: ${toolName}`);
-      expect(message).toContain('Args:');
-      expect(message).toContain('arg1');
-      expect(message).toContain('value1');
-    });
-
-    it('should format tool response message correctly', () => {
-      const serverName = 'test-server';
-      const toolName = 'test_tool';
-      const result = { content: [{ type: 'text', text: 'success' }] };
-
-      const message = `[Tool Response] Server: ${serverName}, Tool: ${toolName}, Result: ${JSON.stringify(result)}`;
-
-      expect(message).toContain('[Tool Response]');
-      expect(message).toContain(`Server: ${serverName}`);
-      expect(message).toContain(`Tool: ${toolName}`);
-      expect(message).toContain('Result:');
-    });
-
-    it('should handle empty args', () => {
-      const serverName = 'test-server';
-      const toolName = 'test_tool';
-      const args = {};
-
-      const message = `[Tool Request] Server: ${serverName}, Tool: ${toolName}, Args: ${JSON.stringify(args)}`;
-
-      expect(message).toContain('Args: {}');
-    });
-
-    it('should handle complex nested args', () => {
-      const serverName = 'test-server';
-      const toolName = 'test_tool';
-      const args = {
-        user: { name: 'Alice', settings: { theme: 'dark' } },
-        items: [1, 2, 3]
-      };
-
-      const message = `[Tool Request] Server: ${serverName}, Tool: ${toolName}, Args: ${JSON.stringify(args)}`;
-
-      expect(message).toContain('Alice');
-      expect(message).toContain('dark');
-      expect(message).toContain('items');
-    });
-
-    it('should log by default without MCPS_VERBOSE environment variable', () => {
-      // 确保 MCPS_VERBOSE 未设置时也默认记录日志
-      delete process.env.MCPS_VERBOSE;
-
-      // 日志记录不依赖 MCPS_VERBOSE 环境变量
-      const serverName = 'test-server';
-      const toolName = 'test_tool';
-      const args = { test: 'value' };
-
-      // 无论 MCPS_VERBOSE 是否设置，都应该记录日志
-      const message = `[Tool Request] Server: ${serverName}, Tool: ${toolName}, Args: ${JSON.stringify(args)}`;
-
-      expect(message).toBeDefined();
-    });
+describe('actual tool calls, logging and result rendering', () => {
+  let service: McpClientService;
+  beforeEach(async () => {
+    vi.spyOn(Client.prototype, 'connect').mockResolvedValue();
+    vi.spyOn(Client.prototype, 'close').mockResolvedValue();
+    vi.spyOn(Client.prototype, 'callTool').mockResolvedValue({ content: [{ type: 'text', text: 'result' }] });
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    service = new McpClientService();
+    await service.connect({ url: 'https://example.org/mcp' }, 'server');
+  });
+  afterEach(async () => { await service.close(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+  it('passes the tool, arguments, timeout and continuation to the SDK', async () => {
+    await service.callTool('echo', { text: 'hello' }, 1200, { requestState: 'opaque' });
+    expect(Client.prototype.callTool).toHaveBeenCalledWith(
+      { name: 'echo', arguments: { text: 'hello' }, requestState: 'opaque' },
+      { timeout: 1200, maxTotalTimeout: 1200, allowInputRequired: true },
+    );
+  });
+  it('logs actual requests only in verbose mode without logging sensitive arguments or results', async () => {
+    vi.stubEnv('MCPS_VERBOSE', 'true');
+    await service.callTool('echo', { token: 'private-test-value' });
+    const output = vi.mocked(console.log).mock.calls.flat().join('\n');
+    expect(output).toContain('[Tool Request] Server: server, Tool: echo');
+    expect(output).toContain('[Tool Response] Server: server, Tool: echo');
+    expect(output).not.toContain('private-test-value');
+    expect(output).not.toContain('result');
+  });
+  it('keeps normal tool calls quiet', async () => {
+    vi.stubEnv('MCPS_VERBOSE', 'false');
+    await service.callTool('echo', {});
+    expect(console.log).not.toHaveBeenCalled();
+  });
+  it('renders audio, resource links, embedded text and non-object structured content', () => {
+    printResult({ content: [
+      { type: 'audio', mimeType: 'audio/wav', data: 'abc' },
+      { type: 'resource_link', uri: 'test://resource' },
+      { type: 'resource', resource: { uri: 'test://embedded', text: 'embedded text' } },
+    ], structuredContent: [1, 2] });
+    expect(vi.mocked(console.log).mock.calls.flat()).toEqual(['[Audio: audio/wav]', '[Resource: test://resource]', 'embedded text', '[\n  1,\n  2\n]']);
+  });
+  it('preserves input-required state in rendering', () => {
+    const result = { resultType: 'input_required', requestState: 'opaque', inputRequests: {} };
+    printResult(result);
+    expect(JSON.parse(vi.mocked(console.log).mock.calls[0][0])).toEqual(result);
   });
 });

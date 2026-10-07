@@ -1,6 +1,6 @@
 {
   "name": "@maplezzk/mcps",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "A CLI to manage and use MCP servers",
   "publishConfig": {
     "access": "public"
@@ -23,13 +23,15 @@
     "mcps": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/tests",
+    "docs/MCP_SUPPORT.md"
   ],
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build && npm run test",
     "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
+    "dev": "node --loader ts-node/esm src/index.ts",
     "check": "npm run build && npm test",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -37,15 +39,16 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.3",
+    "@modelcontextprotocol/client": "2.3.1",
     "chalk": "^5.6.2",
     "commander": "^14.0.2",
     "conf": "^15.0.2",
-    "eventsource": "^4.1.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@types/eventsource": "^1.1.15",
+    "@modelcontextprotocol/node": "2.1.1",
+    "@modelcontextprotocol/sdk": "1.25.3",
+    "@modelcontextprotocol/server": "2.3.1",
     "@types/node": "^22.10.7",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",

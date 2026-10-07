@@ -15,6 +15,19 @@
 - 🚨 **详细日志**：可选的详细日志模式，方便调试
 - ✅ **自动化测试**：完整的测试套件，确保代码质量
 
+## MCP 协议支持
+
+已支持 **MCP 2026-07-28** 与官方 SDK v2，包括新版自动协商和旧版回退、资源、提示词、参数补全、手动多轮 elicitation 与 OAuth 客户端凭据认证。已验证范围及可选能力见 [支持矩阵](docs/MCP_SUPPORT.md)。
+
+```bash
+mcps discover my-server
+mcps resources my-server
+mcps read my-server resource://document
+mcps prompts my-server
+mcps prompt my-server welcome name=Taipei
+mcps call my-server my-tool --output-json
+```
+
 ## 安装
 
 ```bash
@@ -293,26 +306,31 @@ mcps call my-server createUser --json params.json
 配置文件示例：
 ```json
 {
-  "servers": [
-    {
-      "name": "fetch",
-      "type": "stdio",
+  "daemonTimeout": 20000,
+  "mcpServers": {
+    "fetch": {
       "command": "uvx",
-      "args": ["mcp-server-fetch"]
+      "args": ["mcp-server-fetch"],
+      "protocolVersion": "auto"
     },
-    {
-      "name": "my-server",
-      "type": "stdio",
+    "my-server": {
       "command": "node",
       "args": ["./build/index.js"],
-      "env": {
-        "API_KEY": "${API_KEY}"
-      },
+      "cwd": "/workspace/my-server",
+      "env": { "API_KEY": "${API_KEY}" },
       "disabled": false
+    },
+    "remote": {
+      "type": "http",
+      "url": "https://mcp.example.com/mcp",
+      "headers": { "Authorization": "Bearer ${MCP_TOKEN}" }
     }
-  ]
+  }
 }
 ```
+
+
+使用 `mcps config path` 查看实际路径，用 `mcps config validate` 检查配置。写入保留根字段和扩展字段，采用原子替换；配置损坏或条目无效时拒绝覆盖。旧 `servers` 数组格式不受支持，应先转换为以服务名为键的 `mcpServers` 对象。
 
 ## 环境变量
 
