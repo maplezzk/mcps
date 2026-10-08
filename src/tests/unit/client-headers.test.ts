@@ -1,67 +1,35 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-
-// Mock the MCP SDK transports before importing client
 const mockStreamableHTTPConnect = vi.fn().mockResolvedValue(undefined);
 const mockSSEConnect = vi.fn().mockResolvedValue(undefined);
-
 let capturedStreamableHTTPUrl: URL | undefined;
 let capturedStreamableHTTPOpts: any;
 let capturedSSEUrl: URL | undefined;
 let capturedSSEOpts: any;
-
-vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
+vi.mock('@modelcontextprotocol/client', () => ({
   StreamableHTTPClientTransport: class {
-    constructor(url: URL, opts?: any) {
-      capturedStreamableHTTPUrl = url;
-      capturedStreamableHTTPOpts = opts;
-    }
+    constructor(url: URL, opts?: any) { capturedStreamableHTTPUrl = url; capturedStreamableHTTPOpts = opts; }
     start = mockStreamableHTTPConnect;
     close = vi.fn();
-    set onclose(_: any) {}
-    set onerror(_: any) {}
-    set onmessage(_: any) {}
-  }
-}));
-
-vi.mock('@modelcontextprotocol/sdk/client/sse.js', () => ({
+  },
   SSEClientTransport: class {
-    constructor(url: URL, opts?: any) {
-      capturedSSEUrl = url;
-      capturedSSEOpts = opts;
-    }
+    constructor(url: URL, opts?: any) { capturedSSEUrl = url; capturedSSEOpts = opts; }
     start = mockSSEConnect;
     close = vi.fn();
-    set onclose(_: any) {}
-    set onerror(_: any) {}
-    set onmessage(_: any) {}
-  }
-}));
-
-vi.mock('@modelcontextprotocol/sdk/client/stdio.js', () => ({
-  StdioClientTransport: class {
-    constructor(_opts: any) {}
-    start = vi.fn().mockResolvedValue(undefined);
-    close = vi.fn();
-    set onclose(_: any) {}
-    set onerror(_: any) {}
-    set onmessage(_: any) {}
-  }
-}));
-
-vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
+  },
   Client: class {
-    constructor(_info: any, _opts: any) {}
     connect = vi.fn().mockResolvedValue(undefined);
     listTools = vi.fn().mockResolvedValue({ tools: [] });
     callTool = vi.fn().mockResolvedValue({ result: 'ok' });
-    close = vi.fn();
+    close = vi.fn().mockResolvedValue(undefined);
+    setRequestHandler = vi.fn();
+  },
+}));
+vi.mock('@modelcontextprotocol/client/stdio', () => ({
+  StdioClientTransport: class {
+    start = vi.fn().mockResolvedValue(undefined);
+    close = vi.fn().mockResolvedValue(undefined);
   }
 }));
-
-vi.mock('eventsource', () => ({
-  EventSource: class {}
-}));
-
 import { McpClientService } from '../../core/client.js';
 import { detectServerType, HttpServerConfigSchema } from '../../types/config.js';
 

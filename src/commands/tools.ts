@@ -59,14 +59,10 @@ export const registerToolsCommand = (program: Command) => {
     .option('-j, --json', 'Output raw JSON')
     .option('-t, --tool <name...>', 'Filter tools by name(s)')
     .action(async (serverName, options) => {
-      // Check if server exists in config first
-      const serverConfig = configManager.getServer(serverName);
-      if (!serverConfig) {
-        console.error(chalk.red(`Server "${serverName}" not found in config.`));
-        process.exit(1);
-      }
-
       try {
+        const serverConfig = configManager.getServer(serverName);
+        if (!serverConfig) throw new Error(`Server "${serverName}" not found in config.`);
+        if (serverConfig.disabled) throw new Error(`Server "${serverName}" is disabled.`);
         // Auto-start daemon if needed
         await DaemonClient.ensureDaemon();
 
@@ -83,14 +79,13 @@ export const registerToolsCommand = (program: Command) => {
           );
         }
 
-        if (!tools || tools.length === 0) {
-          console.log(chalk.yellow('No tools found.'));
-          return;
-        }
-
         if (options.json) {
           // Raw JSON output
           console.log(JSON.stringify(tools, null, 2));
+          return;
+        }
+        if (!tools || tools.length === 0) {
+          console.log(chalk.yellow('No tools found.'));
           return;
         }
 
@@ -105,7 +100,7 @@ export const registerToolsCommand = (program: Command) => {
 
       } catch (error: any) {
         console.error(chalk.red(`Failed to list tools: ${error.message}`));
-        process.exit(1);
+        process.exitCode = 1;
       }
     });
 };

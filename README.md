@@ -14,6 +14,19 @@ A powerful command-line interface for managing and interacting with [Model Conte
 - 🔍 **Tool Filtering**: Filter tools by keywords with simple mode
 - 🚨 **Verbose Logging**: Optional detailed logging for debugging
 
+## MCP protocol support
+
+Supports MCP **2026-07-28** with SDK v2, automatic legacy negotiation, resources, prompts, completion, manual multi-round-trip elicitation and OAuth client credentials. See [the support matrix](docs/MCP_SUPPORT.md) for tested behavior and optional host features.
+
+```bash
+mcps discover my-server
+mcps resources my-server
+mcps read my-server resource://document
+mcps prompts my-server
+mcps prompt my-server welcome name=Taipei
+mcps call my-server my-tool --output-json
+```
+
 ## Installation
 
 ```bash
@@ -292,26 +305,31 @@ You can change the storage location by setting the `MCPS_CONFIG_DIR` environment
 Configuration file example:
 ```json
 {
-  "servers": [
-    {
-      "name": "fetch",
-      "type": "stdio",
+  "daemonTimeout": 20000,
+  "mcpServers": {
+    "fetch": {
       "command": "uvx",
-      "args": ["mcp-server-fetch"]
+      "args": ["mcp-server-fetch"],
+      "protocolVersion": "auto"
     },
-    {
-      "name": "my-server",
-      "type": "stdio",
+    "my-server": {
       "command": "node",
       "args": ["./build/index.js"],
-      "env": {
-        "API_KEY": "${API_KEY}"
-      },
+      "cwd": "/workspace/my-server",
+      "env": { "API_KEY": "${API_KEY}" },
       "disabled": false
+    },
+    "remote": {
+      "type": "http",
+      "url": "https://mcp.example.com/mcp",
+      "headers": { "Authorization": "Bearer ${MCP_TOKEN}" }
     }
-  ]
+  }
 }
 ```
+
+
+Use `mcps config path` and `mcps config validate` to inspect configuration. Root options and extension fields are preserved. Writes are atomic and refuse to overwrite malformed or invalid configuration. The legacy `servers` array is unsupported; convert it to the `mcpServers` map before modifying it.
 
 ## Environment Variables
 

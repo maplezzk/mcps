@@ -6,6 +6,23 @@ import { DaemonClient } from '../core/daemon-client.js';
 import { detectServerType } from '../types/config.js';
 import { DAEMON_PORT } from '../core/constants.js';
 
+export function parseAssignments(values: string[] = []): Record<string, string> {
+  const entries = values.map(value => {
+    const index = value.indexOf('=');
+    if (index <= 0) throw new Error(`Expected KEY=VALUE, received "${value}"`);
+    return [value.slice(0, index), value.slice(index + 1)] as const;
+  });
+  return Object.fromEntries(entries);
+}
+
+function oauthOptions(options: any) {
+  if (![options.oauthClientId, options.oauthClientSecretEnv, options.oauthIssuer, options.oauthScope].some(value => value !== undefined)) return undefined;
+  if (!options.oauthClientId || !options.oauthClientSecretEnv || !options.oauthIssuer) {
+    throw new Error('OAuth requires --oauth-client-id, --oauth-client-secret-env and --oauth-issuer');
+  }
+  return { type: 'client_credentials' as const, clientId: options.oauthClientId, clientSecretEnv: options.oauthClientSecretEnv, issuer: options.oauthIssuer, scope: options.oauthScope };
+}
+
 // Helper function to make HTTP requests to daemon (bypassing proxy)
 function daemonRequest(method: string, path: string, body?: string): Promise<{ status: number; ok: boolean; data: any }> {
   return new Promise((resolve, reject) => {
@@ -46,6 +63,7 @@ function daemonRequest(method: string, path: string, body?: string): Promise<{ s
 
 export const registerServerCommands = (program: Command) => {
   const listServersAction = () => {
+    try {
       const servers = configManager.listServers();
       if (servers.length === 0) {
         console.log(chalk.yellow('No servers configured.'));
@@ -116,37 +134,47 @@ export const registerServerCommands = (program: Command) => {
       console.log('');
       console.log(chalk.cyan(`Total: ${servers.length} server(s)`));
       console.log('');
+    } catch (error: any) {
+      console.error(chalk.red(error.message));
+      process.exitCode = 1;
+    }
   };
 
   const addServerAction = (name: string, options: any) => {
       try {
-        if (options.type === 'sse' || options.type === 'http' || options.url) {
+        if (!['stdio', 'sse', 'http', 'streamableHttp'].includes(options.type)) throw new Error('Unknown server type');
+        if (options.command && options.url) throw new Error('Specify command or url, not both');
+        const auth = oauthOptions(options);
+        if (options.type !== 'stdio' || options.url) {
           if (!options.url) throw new Error(`URL is required for ${options.type || 'HTTP/SSE'} servers`);
+          if (options.env?.length || options.cwd || options.args?.length) throw new Error('env, cwd and args require a stdio server');
           configManager.addServer(name, {
             url: options.url,
+            type: options.type === 'stdio' ? 'http' : options.type,
+            headers: options.header?.length ? parseAssignments(options.header) : undefined,
+            auth,
+            protocolVersion: options.protocolVersion,
+            disabled: options.disabled,
           });
         } else {
           if (!options.command) throw new Error('Command is required for Stdio servers');
+          if (options.header?.length || auth) throw new Error('Headers and OAuth require an HTTP/SSE server');
 
-          const env: Record<string, string> = {};
-          if (options.env) {
-            options.env.forEach((e: string) => {
-               const parts = e.split('=');
-               const k = parts[0];
-               const v = parts.slice(1).join('=');
-               if (k && v) env[k] = v;
-            });
-          }
+          const env = parseAssignments(options.env);
 
           configManager.addServer(name, {
             command: options.command,
             args: options.args || [],
             env: Object.keys(env).length > 0 ? env : undefined,
+            cwd: options.cwd,
+            protocolVersion: options.protocolVersion,
+            disabled: options.disabled,
           });
         }
         console.log(chalk.green(`Server "${name}" added successfully.`));
       } catch (error: any) {
         console.error(chalk.red(`Error adding server: ${error.message}`));
+        process.exitCode = 1;
       }
   };
 
@@ -156,6 +184,7 @@ export const registerServerCommands = (program: Command) => {
         console.log(chalk.green(`Server "${name}" removed.`));
       } catch (error: any) {
         console.error(chalk.red(error.message));
+        process.exitCode = 1;
       }
   };
 
@@ -165,6 +194,7 @@ export const registerServerCommands = (program: Command) => {
         console.log(chalk.green(`Server "${oldName}" renamed to "${newName}".`));
       } catch (error: any) {
         console.error(chalk.red(error.message));
+        process.exitCode = 1;
       }
   };
 
@@ -185,6 +215,7 @@ export const registerServerCommands = (program: Command) => {
           } catch (error: any) {
               console.error(chalk.red(`Failed to restart all servers: ${error.message}`));
               console.error(chalk.yellow('Make sure the daemon is running (use: mcps start)'));
+              process.exitCode = 1;
           }
           return;
       }
@@ -192,9 +223,24 @@ export const registerServerCommands = (program: Command) => {
       // Update specific server configuration
       try {
           const updates: any = {};
+          if (options.disabled && options.enabled) throw new Error('Choose either --disabled or --enabled');
+          const current = configManager.getServer(name);
+          if (!current) throw new Error(`Server with name "${name}" not found.`);
+          const transport = options.type ?? (options.url ? 'http' : options.command ? 'stdio' : detectServerType(current));
+          const auth = oauthOptions(options);
+          if (transport !== 'stdio' && (options.env || options.cwd !== undefined || options.args)) throw new Error('env, cwd and args require a stdio server');
+          if (transport === 'stdio' && (options.header || auth)) throw new Error('Headers and OAuth require an HTTP/SSE server');
           if (options.command) updates.command = options.command;
           if (options.args) updates.args = options.args;
           if (options.url) updates.url = options.url;
+          if (options.type) updates.type = options.type;
+          if (options.cwd !== undefined) updates.cwd = options.cwd;
+          if (options.env) updates.env = { ...configManager.getServer(name)?.env as Record<string, string>, ...parseAssignments(options.env) };
+          if (options.header) updates.headers = { ...configManager.getServer(name)?.headers as Record<string, string>, ...parseAssignments(options.header) };
+          if (options.protocolVersion) updates.protocolVersion = options.protocolVersion;
+          if (auth) updates.auth = auth;
+          if (options.disabled !== undefined) updates.disabled = options.disabled;
+          if (options.enabled) updates.disabled = false;
 
           if (Object.keys(updates).length === 0) {
               console.log(chalk.yellow('No updates provided.'));
@@ -207,6 +253,7 @@ export const registerServerCommands = (program: Command) => {
           console.log(chalk.gray('Note: Restart the daemon to apply changes: mcps restart'));
       } catch (error: any) {
           console.error(chalk.red(`Error updating server: ${error.message}`));
+          process.exitCode = 1;
       }
   };
 
@@ -226,6 +273,14 @@ export const registerServerCommands = (program: Command) => {
     .option('--args [args...]', 'Arguments for the command', [])
     .option('--url <url>', 'URL for SSE/HTTP connection')
     .option('--env <env...>', 'Environment variables (KEY=VALUE)', [])
+    .option('--header <headers...>', 'HTTP headers (KEY=VALUE)')
+    .option('--oauth-client-id <id>', 'OAuth client credentials ID')
+    .option('--oauth-client-secret-env <name>', 'Environment variable containing the OAuth secret')
+    .option('--oauth-issuer <url>', 'Authorization server issuer these credentials belong to')
+    .option('--oauth-scope <scope>', 'OAuth scopes')
+    .option('--cwd <directory>', 'Working directory for stdio server')
+    .option('--protocol-version <version>', 'auto, legacy, or 2026-07-28', 'auto')
+    .option('--disabled', 'Disable the server')
     .action(addServerAction);
 
   // Remove server command
@@ -246,6 +301,17 @@ export const registerServerCommands = (program: Command) => {
     .option('--command <command>', 'New command')
     .option('--args [args...]', 'New arguments for the command')
     .option('--url <url>', 'New URL')
+    .option('--type <type>', 'New transport type')
+    .option('--env <env...>', 'Merge environment variables (KEY=VALUE)')
+    .option('--header <headers...>', 'Merge HTTP headers (KEY=VALUE)')
+    .option('--oauth-client-id <id>', 'OAuth client credentials ID')
+    .option('--oauth-client-secret-env <name>', 'Environment variable containing the OAuth secret')
+    .option('--oauth-issuer <url>', 'Authorization server issuer these credentials belong to')
+    .option('--oauth-scope <scope>', 'OAuth scopes')
+    .option('--cwd <directory>', 'New stdio working directory')
+    .option('--protocol-version <version>', 'auto, legacy, or 2026-07-28')
+    .option('--disabled', 'Disable the server')
+    .option('--enabled', 'Enable the server')
     .action(updateServerAction);
 
   // ===== Legacy server subcommands (for backward compatibility) =====
@@ -265,6 +331,14 @@ export const registerServerCommands = (program: Command) => {
     .option('--args [args...]', 'Arguments for the command', [])
     .option('--url <url>', 'URL for SSE/HTTP connection')
     .option('--env <env...>', 'Environment variables (KEY=VALUE)', [])
+    .option('--header <headers...>', 'HTTP headers (KEY=VALUE)')
+    .option('--oauth-client-id <id>', 'OAuth client credentials ID')
+    .option('--oauth-client-secret-env <name>', 'Environment variable containing the OAuth secret')
+    .option('--oauth-issuer <url>', 'Authorization server issuer these credentials belong to')
+    .option('--oauth-scope <scope>', 'OAuth scopes')
+    .option('--cwd <directory>', 'Working directory for stdio server')
+    .option('--protocol-version <version>', 'auto, legacy, or 2026-07-28', 'auto')
+    .option('--disabled', 'Disable the server')
     .action(addServerAction);
 
   serverCmd.command('remove <name>')
@@ -282,5 +356,27 @@ export const registerServerCommands = (program: Command) => {
     .option('--command <command>', 'New command')
     .option('--args [args...]', 'New arguments for the command')
     .option('--url <url>', 'New URL')
+    .option('--type <type>', 'New transport type')
+    .option('--env <env...>', 'Merge environment variables (KEY=VALUE)')
+    .option('--header <headers...>', 'Merge HTTP headers (KEY=VALUE)')
+    .option('--oauth-client-id <id>', 'OAuth client credentials ID')
+    .option('--oauth-client-secret-env <name>', 'Environment variable containing the OAuth secret')
+    .option('--oauth-issuer <url>', 'Authorization server issuer these credentials belong to')
+    .option('--oauth-scope <scope>', 'OAuth scopes')
+    .option('--cwd <directory>', 'New stdio working directory')
+    .option('--protocol-version <version>', 'auto, legacy, or 2026-07-28')
+    .option('--disabled', 'Disable the server')
+    .option('--enabled', 'Enable the server')
     .action(updateServerAction);
+
+  const config = program.command('config').description('Inspect and validate the configuration file');
+  config.command('path').action(() => console.log(configManager.getConfigPath()));
+  config.command('validate').action(() => {
+    try {
+      console.log(`Configuration valid: ${configManager.validateConfig()}`);
+    } catch (error: any) {
+      console.error(error.message);
+      process.exitCode = 1;
+    }
+  });
 };

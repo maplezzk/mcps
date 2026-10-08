@@ -1,61 +1,67 @@
 import { McpClientService } from './client.js';
 import { configManager } from './config.js';
-import { ServerConfig } from '../types/config.js';
 
 export class ConnectionPool {
   private clients: Map<string, McpClientService> = new Map();
-  private toolsCache: Map<string, any[]> = new Map(); // Cache full tools result
+  private pending = new Map<string, Promise<McpClientService>>();
+  private connectingClients = new Map<string, McpClientService>();
+  private failures = new Map<string, string>();
   private initializing = false;
   private initialized = false;
 
   async getClient(serverName: string, options?: { timeoutMs?: number }): Promise<McpClientService> {
-    if (this.clients.has(serverName)) {
-      return this.clients.get(serverName)!;
-    }
-
     const serverConfig = configManager.getServer(serverName);
     if (!serverConfig) {
       throw new Error(`Server "${serverName}" not found in config.`);
     }
+    if (serverConfig.disabled) throw new Error(`Server "${serverName}" is disabled.`);
+    if (this.clients.has(serverName)) return this.clients.get(serverName)!;
+    if (this.pending.has(serverName)) return this.pending.get(serverName)!;
 
     const client = new McpClientService();
-    const connectPromise = client.connect(serverConfig);
-    if (options?.timeoutMs) {
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error(`Connection timeout after ${options.timeoutMs}ms`)), options.timeoutMs);
-      });
-      await Promise.race([connectPromise, timeoutPromise]);
-    } else {
-      await connectPromise;
-    }
-    this.clients.set(serverName, client);
-
-    // Cache full tools result after connection
-    try {
-      const result = await client.listTools();
-      this.toolsCache.set(serverName, result.tools || []);
-    } catch (e) {
-      // Connection succeeded but listTools failed, cache as empty array
-      this.toolsCache.set(serverName, []);
-    }
-
-    return client;
-  }
-
-  getCachedTools(serverName: string): any[] | null {
-    return this.toolsCache.has(serverName) ? this.toolsCache.get(serverName)! : null;
+    this.connectingClients.set(serverName, client);
+    const connecting = (async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const connection = client.connect(serverConfig, serverName);
+        if (options?.timeoutMs) {
+          await Promise.race([connection, new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`Connection timeout after ${options.timeoutMs}ms`)), options.timeoutMs);
+          })]);
+        } else await connection;
+        if (this.connectingClients.get(serverName) !== client) throw new Error('Connection was reset while connecting');
+        this.clients.set(serverName, client);
+        this.failures.delete(serverName);
+        return client;
+      } catch (error) {
+        if (this.connectingClients.get(serverName) === client) this.failures.set(serverName, error instanceof Error ? error.message : String(error));
+        await client.close();
+        throw error;
+      } finally {
+        if (timer) clearTimeout(timer);
+        if (this.connectingClients.get(serverName) === client) {
+          this.pending.delete(serverName);
+          this.connectingClients.delete(serverName);
+        }
+      }
+    })();
+    this.pending.set(serverName, connecting);
+    return connecting;
   }
 
   async closeClient(serverName: string) {
-    if (this.clients.has(serverName)) {
+    const client = this.clients.get(serverName) ?? this.connectingClients.get(serverName);
+    this.clients.delete(serverName);
+    this.connectingClients.delete(serverName);
+    this.pending.delete(serverName);
+    this.failures.delete(serverName);
+    if (client) {
       console.log(`[Daemon] Closing connection to ${serverName}...`);
       try {
-        await this.clients.get(serverName)!.close();
+        await client.close();
       } catch (e) {
         console.error(`[Daemon] Error closing ${serverName}:`, e);
       }
-      this.clients.delete(serverName);
-      this.toolsCache.delete(serverName);
       return true;
     }
     return false;
@@ -66,16 +72,19 @@ export class ConnectionPool {
     if (verbose) {
       console.log('closeAll() called');
     }
-    for (const [name, client] of this.clients) {
+    const closing = new Map([...this.connectingClients, ...this.clients]);
+    this.clients.clear();
+    this.connectingClients.clear();
+    this.pending.clear();
+    this.failures.clear();
+    for (const [name, client] of closing) {
       console.log(`Closing connection to ${name}...`);
       try {
-        client.close();
+        await client.close();
       } catch (e) {
         console.error(`Error closing ${name}:`, e);
       }
     }
-    this.clients.clear();
-    this.toolsCache.clear();
     if (verbose) {
       console.log('Connection pools cleared');
     }
@@ -89,7 +98,8 @@ export class ConnectionPool {
     const verbose = process.env.MCPS_VERBOSE === 'true';
 
     // 获取连接超时时间（从环境变量或默认 20 秒）
-    const connectionTimeout = parseInt(process.env.MCPS_CONNECTION_TIMEOUT || '20000', 10);
+    const configuredTimeout = Number(process.env.MCPS_CONNECTION_TIMEOUT ?? 20000);
+    const connectionTimeout = Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 20000;
 
     // 过滤掉 disabled 的服务器
     const enabledServers = servers.filter(server => {
@@ -156,30 +166,24 @@ export class ConnectionPool {
     return { initializing: this.initializing, initialized: this.initialized };
   }
 
-  async getActiveConnectionDetails(includeTools = true): Promise<{ name: string, toolsCount: number | null, status: string }[]> {
+  async getActiveConnectionDetails(includeTools = true) {
     const details = [];
     for (const [name, client] of this.clients) {
       let toolsCount = null;
       let status = 'connected';
 
       if (includeTools) {
-        // Use cached tools count instead of calling listTools again
-        if (this.toolsCache.has(name)) {
-          toolsCount = this.toolsCache.get(name)!.length;
-        } else {
-          // Fallback: if not cached, fetch it now
-          try {
-            const result = await client.listTools();
-            toolsCount = result.tools.length;
-            this.toolsCache.set(name, result.tools || []);
-          } catch (e) {
-            status = 'error';
-          }
+        try {
+          const result = await client.listTools();
+          toolsCount = result.tools.length;
+        } catch {
+          status = 'error';
         }
       }
 
-      details.push({ name, toolsCount, status });
+      details.push({ name, toolsCount, status, ...client.getInfo() });
     }
+    for (const [name, error] of this.failures) details.push({ name, toolsCount: null, status: 'error', error });
     return details;
   }
 }
