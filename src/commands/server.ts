@@ -231,7 +231,7 @@ export const registerServerCommands = (program: Command) => {
           if (transport !== 'stdio' && (options.env || options.cwd !== undefined || options.args)) throw new Error('env, cwd and args require a stdio server');
           if (transport === 'stdio' && (options.header || auth)) throw new Error('Headers and OAuth require an HTTP/SSE server');
           if (options.command) updates.command = options.command;
-          if (options.args) updates.args = options.args;
+          if (options.args !== undefined) updates.args = options.args === true ? [] : options.args;
           if (options.url) updates.url = options.url;
           if (options.type) updates.type = options.type;
           if (options.cwd !== undefined) updates.cwd = options.cwd;
